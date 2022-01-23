@@ -353,7 +353,7 @@ nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
 init() ->
-    Name = "osp",
+    Name = "libosp",
     Dir = case code:priv_dir(ospraye) of
               {error, _} ->
                   MPath = code:which(?MODULE),
