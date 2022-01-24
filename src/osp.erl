@@ -115,7 +115,9 @@ deviceSetParam(Device, Id, Type, Mem) ->
 deviceSetParam_nif(_Device, _Id, _DataType, _Mem) -> ?nif_stub.
 
 -spec deviceRemoveParam(Dev::device(), Id::binary) -> ok.
-deviceRemoveParam(_Device, _Id) -> ?nif_stub.
+deviceRemoveParam(Device, Id) ->
+    deviceRemoveParam_nif(Device, id_to_string(Id)).
+deviceRemoveParam_nif(_Device, _Id) -> ?nif_stub.
 
 %% Status message callback function type
 %% typedef void (*StatusCallback)(void *userData, const char *messageText)
@@ -364,8 +366,11 @@ id_to_string(Id) when is_list(Id); is_binary(Id) ->
 
 data_to_binary(string, Data) ->
     id_to_string(Data);
+data_to_binary(_, Data) when is_binary(Data) ->
+    Data;
 data_to_binary(Type, Data) when is_reference(Data) ->
     case Type of  %% Assert the reference have an object data type
+        device -> ok;
         object -> ok;
         data -> ok;
         camera -> ok;
@@ -392,8 +397,53 @@ data_to_binary(Type, Boolean) when is_boolean(Boolean) ->
         true  -> <<1:32/native>>;
         false -> <<0:32/native>>
     end;
-data_to_binary(_, Data) when is_binary(Data) ->
-    Data.
+data_to_binary(T, Int) when is_integer(Int), T =:= char; T =:= uchar -> <<Int:8/native>>;
+data_to_binary(T, Ints)  when is_list(Ints),
+                              T =:= vec2c; T =:= vec3c; T =:= vec4c;
+                              T =:= vec2uc; T =:= vec3uc; T =:= vec4uc  ->
+    << <<I:8/native>> || I <- Ints >>;
+
+data_to_binary(T, Int) when is_integer(Int), T =:= short; T =:= ushort ->
+    <<Int:16/native>>;
+data_to_binary(T, Ints) when is_list(Ints),
+                             T =:= vec2s; T =:= vec3s; T =:= vec4s;
+                             T =:= vec2us; T =:= vec3us; T =:= vec4us->
+    << <<I:16/native>> || I <- Ints >>;
+
+data_to_binary(T, Int) when is_integer(Int), T =:= int; T =:= uint ->
+    <<Int:32/native>>;
+data_to_binary(T, Ints) when is_list(Ints),
+                             T =:= vec2i; T =:= vec3i; T =:= vec4i;
+                             T =:= vec2ui; T =:= vec3ui; T =:= vec4ui;
+                             T =:= box1i; T =:= box2i; T =:= box3i, T =:= box4i ->
+    << <<I:32/unsigned-native>> || I <- Ints >>;
+
+data_to_binary(T, Int) when is_integer(Int), T =:= long; T =:= ulong ->
+    <<Int:64/native>>;
+data_to_binary(T, Ints) when is_list(Ints),
+                             T =:= vec2l; T =:= vec3l; T =:= vec4l;
+                             T =:= vec2ul; T =:= vec3ul; T =:= vec4ul ->
+    << <<I:64/unsigned-native>> || I <- Ints >>;
+
+data_to_binary(T, N) when is_number(N), T =:= half ->
+    <<N:16/float-native>>;
+data_to_binary(T, Ns) when is_list(Ns), T =:= vec2h; T =:= vec3h; T =:= vec4h ->
+    << <<N:16/float-native>> || N <- Ns >>;
+data_to_binary(T, N) when is_number(N), T =:= float ->
+    <<N:32/float-native>>;
+data_to_binary(T, Ns) when is_list(Ns),
+                           T =:= vec2f; T =:= vec3f; T =:= vec4f;
+                           T =:= box1f; T =:= box2f; T =:= box3f, T =:= box4f;
+                           T =:= linear2; T =:= linear3f; T =:= affine2f; T =:= affine3f;
+                           T =:= quatf ->
+    << <<N:32/float-native>> || N <- Ns >>;
+data_to_binary(T, N) when is_number(N), T =:= double ->
+    <<N:64/float-native>>;
+data_to_binary(T, Ns) when is_list(Ns), T =:= vec2d; T =:= vec3d; T =:= vec4d ->
+    << <<N:64/float-native>> || N <- Ns >>;
+
+data_to_binary(T, Tuple) when is_tuple(Tuple) ->
+    data_to_binary(T, tuple_to_list(Tuple)).
 
 %% Nif init
 

@@ -147,7 +147,7 @@ ERL_NIF_TERM osp_make_object(ErlNifEnv* env, OSPObject obj, osp_object_t type)
 
 static void osp_object_gc(ErlNifEnv* env, osp_mem_t* obj)
 {
-    fprintf(stderr, "destroy obj %p (%d)\r\n", obj->obj, obj->type);
+    // fprintf(stderr, "destroy obj %p (%d)\r\n", obj->obj, obj->type);
     if(obj->type == ospt_device) {
         ospDeviceRelease((OSPDevice) obj->obj);
     } else {
@@ -222,7 +222,14 @@ ERL_NIF_TERM osp_deviceGetProperty(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 ERL_NIF_TERM osp_deviceRemoveParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+
+    ErlNifBinary id;
+    if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
+    ospDeviceRemoveParam((OSPDevice) mem->obj,  (const char*) id.data);
+    return atom_ok;
 }
 
 // ERL_NIF_TERM osp_deviceRetain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -234,6 +241,9 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 {
     osp_mem_t *mem;
     int type_v;
+    void * data_ptr;
+    ErlNifBinary binary;
+
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
     if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
 
@@ -243,10 +253,15 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if(!enif_is_atom(env, argv[2])) make_error(atom_badarg, "DeviceProperty");
     if(!osp_atom_to_enum(osp_dataType, argv[2], &type_v)) make_error(atom_badarg, "Type");
 
-    ErlNifBinary data;
-    if(!enif_inspect_binary(env, argv[3], &data)) make_error(atom_badarg, "Data");
-
-    ospDeviceSetParam((OSPDevice) mem->obj,  (const char*) id.data, (OSPDataType) type_v, data.data);
+    if(enif_is_binary(env, argv[3])) {
+        if(!enif_inspect_binary(env, argv[3], &binary)) make_error(atom_badarg, "Data");
+        data_ptr = binary.data;
+    } else {
+        osp_mem_t *obj;
+        if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
+        data_ptr = mem->obj;
+    }
+    ospDeviceSetParam((OSPDevice) mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
     return atom_ok;
 }
 
@@ -488,7 +503,7 @@ static ErlNifFunc nif_funcs[] =
    {"deviceGetLastErrorMsg", 1, osp_deviceGetLastErrorMsg, 0},
    {"deviceGetProperty", 2, osp_deviceGetProperty, 0},
    // {"deviceRelease", 1, osp_deviceRelease, 0},
-   {"deviceRemoveParam", 2, osp_deviceRemoveParam, 0},
+   {"deviceRemoveParam_nif", 2, osp_deviceRemoveParam, 0},
    // {"deviceRetain", 1, osp_deviceRetain, 0},
    {"deviceSetParam_nif", 4, osp_deviceSetParam, 0},
    {"geometricModel", 1, osp_geometricModel, 0},
