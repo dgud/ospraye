@@ -28,8 +28,14 @@ EXECUTE_PROCESS (COMMAND
 
 set(ERL_INC "${ERL_ROOT}/usr/include")
 
+find_package(ospray 2.8.0 REQUIRED)
+
 add_library(osp MODULE osp_nif.cpp)
+
 target_include_directories(osp PUBLIC ${ERL_INC})
+#target_include_directories(osp PUBLIC ospray::ospray)
+target_link_libraries(osp ospray::ospray)
+
 
 set(installable_libs osp)
 install(TARGETS ${installable_libs} DESTINATION ../priv)

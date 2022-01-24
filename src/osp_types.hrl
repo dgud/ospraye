@@ -185,15 +185,19 @@
 
 %% OSPRay channel constants for Frame Buffer (can be OR'ed together)
 -type frameBufferChannel() ::
-        fb_color    % OSP_FB_COLOR = (1 << 0),  OSP_FB_DEPTH = (1 << 1),
-      | fb_accum    % OSP_FB_ACCUM = (1 << 2),  OSP_FB_VARIANCE = (1 << 3),
+        fb_color    % OSP_FB_COLOR = (1 << 0),
+      | fb_depth    % OSP_FB_DEPTH = (1 << 1),
+      | fb_accum    % OSP_FB_ACCUM = (1 << 2),
+      | fb_variance % OSP_FB_VARIANCE = (1 << 3),
       | fb_normal   % OSP_FB_NORMAL = (1 << 4), %% in world-space
       | fb_albedo.  % OSP_FB_ALBEDO = (1 << 5)
 
 %% OSPRay events which can be waited on via ospWait()
 -type syncEvent() ::
-        none_finished     % OSP_NONE_FINISHED = 0,  OSP_WORLD_RENDERED = 10,
-      | world_committed   % OSP_WORLD_COMMITTED = 20,  OSP_FRAME_FINISHED = 30,
+        none_finished     % OSP_NONE_FINISHED = 0,
+      | world_rendered    % OSP_WORLD_RENDERED = 10
+      | world_committed   % OSP_WORLD_COMMITTED = 20
+      | frame_finished    % OSP_FRAME_FINISHED = 30,
       | task_finished.    % OSP_TASK_FINISHED = 100000
 
 %% OSPRay cell types definition for unstructured volumes, values are set to

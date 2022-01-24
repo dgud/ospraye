@@ -91,11 +91,17 @@ deviceGetProperty(_Dev, _DeviceProperty) -> ?nif_stub.
 -spec shutdown() -> ok.
 shutdown() -> ?nif_stub.
 
+%% @doc
 %% Create an Ray engine backend using explicit device string.
+%% ospray always provides a <<"cpu">> device.
 -spec newDevice() -> device().
-newDevice() -> newDevice("default").
+newDevice() -> newDevice(cpu).
 -spec newDevice(DeviceType::binary()) -> device().
-newDevice(_DeviceType) -> ?nif_stub.
+newDevice(Type) when is_atom(Type) ->
+    newDevice_impl(unicode:characters_to_binary([atom_to_binary(Type)|[0]]));
+newDevice(Type) ->
+    newDevice_impl(unicode:characters_to_binary([Type|[0]]));
+newDevice_impl(_DeviceType) -> ?nif_stub.
 
 %% Set current device the API responds to
 
@@ -145,8 +151,11 @@ deviceRetain(_Device) -> ?nif_stub.
 
 %% Load module 'name' from shared lib libray_module_<name>.so
 %% returns Error value to report any errors during initialization
--spec loadModule(Name :: binary()) -> error_code().
-loadModule(_Name) -> ?nif_stub.
+-spec loadModule(Name :: unicode:chardata()) -> error_code().
+loadModule(Name) ->
+    loadModule_nif(unicode:characters_to_binary([Name|[0]])).
+loadModule_nif(_Name) ->
+    ?nif_stub.
 
 %% OSPRay Data Arrays %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 

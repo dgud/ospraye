@@ -17,7 +17,7 @@
 #endif
 #include <string.h>
 
-// #include "ospray.h"
+#include "ospray/ospray.h"
 
 extern "C" {
 #include "erl_nif.h"
@@ -27,7 +27,9 @@ extern "C" {
     ERL_NIF_TERM atom_false;
     ERL_NIF_TERM atom_badarg;
     ERL_NIF_TERM atom_error;
-    // ErlNifResourceType* osp_mem = NULL;
+
+    ErlNifResourceType* osp_object = NULL;
+
     ERL_NIF_TERM osp_cancel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_commit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_copyData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -77,6 +79,8 @@ extern "C" {
 
 }  // extern c
 
+#include "osp_atoms.h"
+
 #define make_error(TYPE, Desc)                                          \
     { fprintf(stderr, "OSP:%d error %s\r\n", __LINE__, Desc);           \
         fflush(stderr);                                                 \
@@ -84,6 +88,18 @@ extern "C" {
                                     enif_make_tuple2(env, TYPE, enif_make_string(env, Desc, ERL_NIF_LATIN1))); \
     }
 
+static int osp_find_atom(osp_atom_t *entry, int value, ERL_NIF_TERM *res);
+
+/* API */
+
+ERL_NIF_TERM osp_make_object(ErlNifEnv* env, OSPObject obj) {
+    ERL_NIF_TERM term;
+    OSPObject* ptr = (OSPObject *) enif_alloc_resource(osp_object, sizeof(OSPObject));
+    *ptr = obj;
+    term = enif_make_resource(env, ptr);
+    enif_release_resource(ptr);
+    return term;
+}
 
 /* Implementations */
 
@@ -179,7 +195,13 @@ ERL_NIF_TERM osp_isReady(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM osp_loadModule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary name;
+    ERL_NIF_TERM atom;
+    if(!enif_inspect_binary(env, argv[0], &name)) make_error(atom_badarg, "Name");
+
+    OSPError res = ospLoadModule((const char *) name.data);
+    if(!osp_find_atom(osp_error_code, res, &atom)) make_error(atom_error, "atom_not_found");
+    return atom;
 }
 
 ERL_NIF_TERM osp_mapFrameBuffer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -199,7 +221,11 @@ ERL_NIF_TERM osp_newData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM osp_newDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPDevice dev = ospNewDevice((const char *) type.data);
+    if(!dev) make_error(atom_error, "invalid device");
+    return osp_make_object(env, (OSPObject) dev);
 }
 
 ERL_NIF_TERM osp_newFrameBuffer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -320,6 +346,24 @@ ERL_NIF_TERM osp_wait(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 /* Initialization */
 
+static void osp_make_atom(ErlNifEnv* env, osp_atom_t *entry) {
+    while(entry->name) {
+        entry->atom = enif_make_atom(env, entry->name);
+        entry++;
+    }
+}
+
+static int osp_find_atom(osp_atom_t *entry, int value, ERL_NIF_TERM *res) {
+    while(entry->name) {
+        if(entry->value == value) {
+            *res = entry->atom;
+            return 1;
+        }
+        entry++;
+    }
+    return 0;
+}
+
 extern "C" {
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -328,8 +372,27 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_false  = enif_make_atom(env, "false");
     atom_badarg = enif_make_atom(env, "badarg");
     atom_error  = enif_make_atom(env, "error");
+    osp_make_atom(env, osp_logLevel);
+    osp_make_atom(env, osp_deviceProperty);
+    osp_make_atom(env, osp_dataType);
+    osp_make_atom(env, osp_textureFormat);
+    osp_make_atom(env, osp_texturefilter);
+    osp_make_atom(env, osp_error_code);
+    osp_make_atom(env, osp_frameBufferFormat);
+    osp_make_atom(env, osp_frameBufferChannel);
+    osp_make_atom(env, osp_syncEvent);
+    osp_make_atom(env, osp_unstructuredCellType);
+    osp_make_atom(env, osp_stereoMode);
+    osp_make_atom(env, osp_shutterType);
+    osp_make_atom(env, osp_curveType);
+    osp_make_atom(env, osp_curveBasis);
+    osp_make_atom(env, osp_subdivisionMode);
+    osp_make_atom(env, osp_amrMethod);
+    osp_make_atom(env, osp_volumeFilter);
+    osp_make_atom(env, osp_pixelFilterTypes);
+    osp_make_atom(env, osp_intensityQuantity);
 
-    // igl_mem = enif_open_resource_type(env, NULL, "igl_mem", NULL, ERL_NIF_RT_CREATE, NULL);
+    osp_object = enif_open_resource_type(env, NULL, "osp_obj", NULL, ERL_NIF_RT_CREATE, NULL);
     return 0;
 }
 
@@ -353,11 +416,11 @@ static ErlNifFunc nif_funcs[] =
    {"getTaskDuration", 1, osp_getTaskDuration, 0},
    {"getVariance", 1, osp_getVariance, 0},
    {"isReady", 2, osp_isReady, 0},
-   {"loadModule", 1, osp_loadModule, 0},
+   {"loadModule_nif", 1, osp_loadModule, 0},
    {"mapFrameBuffer", 2, osp_mapFrameBuffer, 0},
    {"newCamera", 1, osp_newCamera, 0},
    {"newData", 4, osp_newData, 0},
-   {"newDevice", 1, osp_newDevice, 0},
+   {"newDevice_impl", 1, osp_newDevice, 0},
    {"newFrameBuffer", 4, osp_newFrameBuffer, 0},
    {"newGeometry", 1, osp_newGeometry, 0},
    {"newGroup", 0, osp_newGroup, 0},
@@ -382,6 +445,6 @@ static ErlNifFunc nif_funcs[] =
    {"shutdown", 0, osp_shutdown, 0},
    {"wait", 2, osp_wait, 0},
   };
-ERL_NIF_INIT(osp,nif_funcs,load,NULL,NULL,NULL)
-
+    ERL_NIF_INIT(osp,nif_funcs,load,NULL,NULL,NULL)
+    
 }  // extern c
