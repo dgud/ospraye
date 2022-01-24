@@ -19,6 +19,19 @@
 
 #include "ospray/ospray.h"
 
+typedef enum {
+              ospt_managedObject, ospt_camera, ospt_data,
+              ospt_frameBuffer, ospt_future, ospt_geometricModel, ospt_geometry, ospt_group,
+              ospt_imageOperation, ospt_instance, ospt_light, ospt_material, ospt_object,
+              ospt_renderer, ospt_texture, ospt_transferFunction, ospt_volume,
+              ospt_volumetricModel, ospt_world, ospt_device
+} osp_object_t;
+
+typedef struct {
+    osp_object_t type;
+    OSPObject obj;
+} osp_mem_t;
+
 extern "C" {
 #include "erl_nif.h"
 
@@ -28,7 +41,7 @@ extern "C" {
     ERL_NIF_TERM atom_badarg;
     ERL_NIF_TERM atom_error;
 
-    ErlNifResourceType* osp_object = NULL;
+    ErlNifResourceType* osp_resource = NULL;
 
     ERL_NIF_TERM osp_cancel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_commit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -37,9 +50,9 @@ extern "C" {
     ERL_NIF_TERM osp_deviceGetLastErrorCode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_deviceGetLastErrorMsg(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_deviceGetProperty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-    ERL_NIF_TERM osp_deviceRelease(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    // ERL_NIF_TERM osp_deviceRelease(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_deviceRemoveParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-    ERL_NIF_TERM osp_deviceRetain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    // ERL_NIF_TERM osp_deviceRetain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_geometricModel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_getBounds(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -82,26 +95,68 @@ extern "C" {
 #include "osp_atoms.h"
 
 #define make_error(TYPE, Desc)                                          \
-    { fprintf(stderr, "OSP:%d error %s\r\n", __LINE__, Desc);           \
-        fflush(stderr);                                                 \
+    {                                                                   \
         return enif_raise_exception(env,                                \
                                     enif_make_tuple2(env, TYPE, enif_make_string(env, Desc, ERL_NIF_LATIN1))); \
     }
 
-static int osp_find_atom(osp_atom_t *entry, int value, ERL_NIF_TERM *res);
 
-/* API */
+static void osp_make_atom(ErlNifEnv* env, osp_atom_t *entry)
+{
+    while(entry->name) {
+        entry->atom = enif_make_atom(env, entry->name);
+        entry++;
+    }
+}
 
-ERL_NIF_TERM osp_make_object(ErlNifEnv* env, OSPObject obj) {
+static int osp_enum_to_atom(osp_atom_t *entry, int value, ERL_NIF_TERM *res)
+{
+    while(entry->name) {
+        if(entry->value == value) {
+            *res = entry->atom;
+            return 1;
+        }
+        entry++;
+    }
+    return 0;
+}
+
+static int osp_atom_to_enum(osp_atom_t *entry, ERL_NIF_TERM value, int *res)
+{
+    while(entry->name) {
+        if(enif_is_identical(entry->atom,value)) {
+            *res = entry->value;
+            return 1;
+        }
+        entry++;
+    }
+    return 0;
+}
+
+
+ERL_NIF_TERM osp_make_object(ErlNifEnv* env, OSPObject obj, osp_object_t type)
+{
     ERL_NIF_TERM term;
-    OSPObject* ptr = (OSPObject *) enif_alloc_resource(osp_object, sizeof(OSPObject));
-    *ptr = obj;
-    term = enif_make_resource(env, ptr);
-    enif_release_resource(ptr);
+    osp_mem_t *mem = (osp_mem_t *) enif_alloc_resource(osp_resource, sizeof(osp_mem_t));
+    mem->obj = obj;
+    mem->type = type;
+    term = enif_make_resource(env, mem);
+    enif_release_resource(mem);
     return term;
 }
 
-/* Implementations */
+static void osp_object_gc(ErlNifEnv* env, osp_mem_t* obj)
+{
+    fprintf(stderr, "destroy obj %p (%d)\r\n", obj->obj, obj->type);
+    if(obj->type == ospt_device) {
+        ospDeviceRelease((OSPDevice) obj->obj);
+    } else {
+        ospRelease(obj->obj);
+    }
+}
+
+
+/* API Implementations */
 
 ERL_NIF_TERM osp_cancel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -120,42 +175,79 @@ ERL_NIF_TERM osp_copyData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM osp_deviceCommit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    ospDeviceCommit((OSPDevice) mem->obj);
+    return atom_ok;
 }
 
 ERL_NIF_TERM osp_deviceGetLastErrorCode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    ERL_NIF_TERM atom;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    OSPError error = ospDeviceGetLastErrorCode((OSPDevice) mem->obj);
+
+    if(!osp_enum_to_atom(osp_error_code, error, &atom)) make_error(atom_error, "atom_not_found");
+    return atom;
 }
 
 ERL_NIF_TERM osp_deviceGetLastErrorMsg(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    const char *error = ospDeviceGetLastErrorMsg((OSPDevice) mem->obj);
+    return enif_make_string(env, error, ERL_NIF_LATIN1);
 }
 
 ERL_NIF_TERM osp_deviceGetProperty(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    int enum_v;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(!enif_is_atom(env, argv[1])) make_error(atom_badarg, "DeviceProperty");
+    if(!osp_atom_to_enum(osp_deviceProperty, argv[1], &enum_v)) make_error(atom_badarg, "DeviceProperty");
+    ErlNifSInt64 res = ospDeviceGetProperty((OSPDevice) mem->obj, (OSPDeviceProperty) enum_v);
+    return enif_make_int64(env, res);
 }
 
-ERL_NIF_TERM osp_deviceRelease(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    make_error(atom_error, "NYI");
-}
+// ERL_NIF_TERM osp_deviceRelease(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// {
+//     make_error(atom_error, "NYI");
+// }
 
 ERL_NIF_TERM osp_deviceRemoveParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     make_error(atom_error, "NYI");
 }
 
-ERL_NIF_TERM osp_deviceRetain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    make_error(atom_error, "NYI");
-}
+// ERL_NIF_TERM osp_deviceRetain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// {
+//     make_error(atom_error, "NYI");
+// }
 
 ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    int type_v;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+
+    ErlNifBinary id;
+    if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
+
+    if(!enif_is_atom(env, argv[2])) make_error(atom_badarg, "DeviceProperty");
+    if(!osp_atom_to_enum(osp_dataType, argv[2], &type_v)) make_error(atom_badarg, "Type");
+
+    ErlNifBinary data;
+    if(!enif_inspect_binary(env, argv[3], &data)) make_error(atom_badarg, "Data");
+
+    ospDeviceSetParam((OSPDevice) mem->obj,  (const char*) id.data, (OSPDataType) type_v, data.data);
+    return atom_ok;
 }
 
 ERL_NIF_TERM osp_geometricModel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -170,7 +262,9 @@ ERL_NIF_TERM osp_getBounds(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM osp_getCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    OSPDevice dev = ospGetCurrentDevice();
+    if(!dev) make_error(atom_error, "invalid device");
+    return osp_make_object(env, (OSPObject) dev, ospt_device);
 }
 
 ERL_NIF_TERM osp_getProgress(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -200,7 +294,7 @@ ERL_NIF_TERM osp_loadModule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if(!enif_inspect_binary(env, argv[0], &name)) make_error(atom_badarg, "Name");
 
     OSPError res = ospLoadModule((const char *) name.data);
-    if(!osp_find_atom(osp_error_code, res, &atom)) make_error(atom_error, "atom_not_found");
+    if(!osp_enum_to_atom(osp_error_code, res, &atom)) make_error(atom_error, "atom_not_found");
     return atom;
 }
 
@@ -225,7 +319,7 @@ ERL_NIF_TERM osp_newDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
     OSPDevice dev = ospNewDevice((const char *) type.data);
     if(!dev) make_error(atom_error, "invalid device");
-    return osp_make_object(env, (OSPObject) dev);
+    return osp_make_object(env, (OSPObject) dev, ospt_device);
 }
 
 ERL_NIF_TERM osp_newFrameBuffer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -325,7 +419,11 @@ ERL_NIF_TERM osp_retain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    ospSetCurrentDevice((OSPDevice) mem->obj);
+    return atom_ok;
 }
 
 ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -345,24 +443,6 @@ ERL_NIF_TERM osp_wait(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
 /* Initialization */
-
-static void osp_make_atom(ErlNifEnv* env, osp_atom_t *entry) {
-    while(entry->name) {
-        entry->atom = enif_make_atom(env, entry->name);
-        entry++;
-    }
-}
-
-static int osp_find_atom(osp_atom_t *entry, int value, ERL_NIF_TERM *res) {
-    while(entry->name) {
-        if(entry->value == value) {
-            *res = entry->atom;
-            return 1;
-        }
-        entry++;
-    }
-    return 0;
-}
 
 extern "C" {
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
@@ -392,7 +472,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     osp_make_atom(env, osp_pixelFilterTypes);
     osp_make_atom(env, osp_intensityQuantity);
 
-    osp_object = enif_open_resource_type(env, NULL, "osp_obj", NULL, ERL_NIF_RT_CREATE, NULL);
+    osp_resource = enif_open_resource_type(env, NULL, "osp_obj",
+                                           (ErlNifResourceDtor*) osp_object_gc,
+                                           ERL_NIF_RT_CREATE, NULL);
     return 0;
 }
 
@@ -405,10 +487,10 @@ static ErlNifFunc nif_funcs[] =
    {"deviceGetLastErrorCode", 1, osp_deviceGetLastErrorCode, 0},
    {"deviceGetLastErrorMsg", 1, osp_deviceGetLastErrorMsg, 0},
    {"deviceGetProperty", 2, osp_deviceGetProperty, 0},
-   {"deviceRelease", 1, osp_deviceRelease, 0},
+   // {"deviceRelease", 1, osp_deviceRelease, 0},
    {"deviceRemoveParam", 2, osp_deviceRemoveParam, 0},
-   {"deviceRetain", 1, osp_deviceRetain, 0},
-   {"deviceSetParam", 4, osp_deviceSetParam, 0},
+   // {"deviceRetain", 1, osp_deviceRetain, 0},
+   {"deviceSetParam_nif", 4, osp_deviceSetParam, 0},
    {"geometricModel", 1, osp_geometricModel, 0},
    {"getBounds", 1, osp_getBounds, 0},
    {"getCurrentDevice", 0, osp_getCurrentDevice, 0},
@@ -420,7 +502,7 @@ static ErlNifFunc nif_funcs[] =
    {"mapFrameBuffer", 2, osp_mapFrameBuffer, 0},
    {"newCamera", 1, osp_newCamera, 0},
    {"newData", 4, osp_newData, 0},
-   {"newDevice_impl", 1, osp_newDevice, 0},
+   {"newDevice_nif", 1, osp_newDevice, 0},
    {"newFrameBuffer", 4, osp_newFrameBuffer, 0},
    {"newGeometry", 1, osp_newGeometry, 0},
    {"newGroup", 0, osp_newGroup, 0},

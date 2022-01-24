@@ -12,9 +12,9 @@
          deviceGetLastErrorCode/1,
          deviceGetLastErrorMsg/1,
          deviceGetProperty/2,
-         deviceRelease/1,
+         %% deviceRelease/1,
          deviceRemoveParam/2,
-         deviceRetain/1,
+         %% deviceRetain/1,
          deviceSetParam/4,
          geometricModel/0, geometricModel/1,
          getBounds/1,
@@ -96,12 +96,9 @@ shutdown() -> ?nif_stub.
 %% ospray always provides a <<"cpu">> device.
 -spec newDevice() -> device().
 newDevice() -> newDevice(cpu).
--spec newDevice(DeviceType::binary()) -> device().
-newDevice(Type) when is_atom(Type) ->
-    newDevice_impl(unicode:characters_to_binary([atom_to_binary(Type)|[0]]));
-newDevice(Type) ->
-    newDevice_impl(unicode:characters_to_binary([Type|[0]]));
-newDevice_impl(_DeviceType) -> ?nif_stub.
+-spec newDevice(DeviceType::unicode:chardata()|atom()) -> device().
+newDevice(Type) -> newDevice_nif(id_to_string(Type)).
+newDevice_nif(_DeviceType) -> ?nif_stub.
 
 %% Set current device the API responds to
 
@@ -113,7 +110,9 @@ setCurrentDevice(_Device) -> ?nif_stub.
 getCurrentDevice() -> ?nif_stub.
 
 -spec deviceSetParam(Dev::device(), Id::binary(), Type::dataType(), Mem::binary()) -> ok.
-deviceSetParam(_Device, _Id, _DataType, _Mem) -> ?nif_stub.
+deviceSetParam(Device, Id, Type, Mem) ->
+    deviceSetParam_nif(Device, id_to_string(Id), Type, data_to_binary(Type, Mem)).
+deviceSetParam_nif(_Device, _Id, _DataType, _Mem) -> ?nif_stub.
 
 -spec deviceRemoveParam(Dev::device(), Id::binary) -> ok.
 deviceRemoveParam(_Device, _Id) -> ?nif_stub.
@@ -143,11 +142,11 @@ deviceGetLastErrorMsg(_Device) -> ?nif_stub.
 -spec deviceCommit(device()) -> ok.
 deviceCommit(_Device) -> ?nif_stub.
 
-%% Device handle lifetimes
--spec deviceRelease(device()) -> ok.
-deviceRelease(_Device) -> ?nif_stub.
--spec deviceRetain(device()) -> ok.
-deviceRetain(_Device) -> ?nif_stub.
+%% %% Device handle lifetimes
+%% -spec deviceRelease(device()) -> ok.
+%% deviceRelease(_Device) -> ?nif_stub.
+%% -spec deviceRetain(device()) -> ok.
+%% deviceRetain(_Device) -> ?nif_stub.
 
 %% Load module 'name' from shared lib libray_module_<name>.so
 %% returns Error value to report any errors during initialization
@@ -355,6 +354,46 @@ getProgress(_Future) -> ?nif_stub.
 -spec getTaskDuration(future()) ->  float().
 getTaskDuration(_Future) ->
     ?nif_stub.
+
+%% Helpers
+%% Strings need a closing end of string
+id_to_string(Id) when is_atom(Id) ->
+    unicode:characters_to_binary([atom_to_binary(Id)|[0]]);
+id_to_string(Id) when is_list(Id); is_binary(Id) ->
+    unicode:characters_to_binary([Id|[0]]).
+
+data_to_binary(string, Data) ->
+    id_to_string(Data);
+data_to_binary(Type, Data) when is_reference(Data) ->
+    case Type of  %% Assert the reference have an object data type
+        object -> ok;
+        data -> ok;
+        camera -> ok;
+        framebuffer -> ok;
+        future -> ok;
+        geometric_model -> ok;
+        geometry -> ok;
+        group -> ok;
+        image_operation -> ok;
+        instance -> ok;
+        light -> ok;
+        material -> ok;
+        renderer -> ok;
+        texture -> ok;
+        transfer_function -> ok;
+        volume -> ok;
+        volumetric_model -> ok;
+        world -> ok
+    end,
+    Data;
+data_to_binary(Type, Boolean) when is_boolean(Boolean) ->
+    bool = Type,
+    case Boolean of
+        true  -> <<1:32/native>>;
+        false -> <<0:32/native>>
+    end;
+data_to_binary(_, Data) when is_binary(Data) ->
+    Data.
 
 %% Nif init
 
