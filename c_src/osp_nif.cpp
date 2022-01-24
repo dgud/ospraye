@@ -165,7 +165,11 @@ ERL_NIF_TERM osp_cancel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM osp_commit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
+    if(mem->type == ospt_device) make_error(atom_badarg, "Object is a device");
+    ospCommit(mem->obj);
+    return atom_ok;
 }
 
 ERL_NIF_TERM osp_copyData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -250,7 +254,7 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     ErlNifBinary id;
     if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
 
-    if(!enif_is_atom(env, argv[2])) make_error(atom_badarg, "DeviceProperty");
+    if(!enif_is_atom(env, argv[2])) make_error(atom_badarg, "Type");
     if(!osp_atom_to_enum(osp_dataType, argv[2], &type_v)) make_error(atom_badarg, "Type");
 
     if(enif_is_binary(env, argv[3])) {
@@ -259,7 +263,7 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     } else {
         osp_mem_t *obj;
         if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
-        data_ptr = mem->obj;
+        data_ptr = obj->obj;
     }
     ospDeviceSetParam((OSPDevice) mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
     return atom_ok;
@@ -320,7 +324,11 @@ ERL_NIF_TERM osp_mapFrameBuffer(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 ERL_NIF_TERM osp_newCamera(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPCamera obj = ospNewCamera((const char *) type.data);
+    if(!obj) make_error(atom_error, "invalid camera");
+    return osp_make_object(env, (OSPObject) obj, ospt_camera);
 }
 
 ERL_NIF_TERM osp_newData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -344,7 +352,11 @@ ERL_NIF_TERM osp_newFrameBuffer(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 ERL_NIF_TERM osp_newGeometry(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPGeometry obj = ospNewGeometry((const char *) type.data);
+    if(!obj) make_error(atom_error, "invalid geometry type");
+    return osp_make_object(env, (OSPObject) obj, ospt_geometry);
 }
 
 ERL_NIF_TERM osp_newGroup(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -364,12 +376,20 @@ ERL_NIF_TERM osp_newInstance(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
 ERL_NIF_TERM osp_newLight(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPLight obj = ospNewLight((const char *) type.data);
+    if(!obj) make_error(atom_error, "invalid light type");
+    return osp_make_object(env, (OSPObject) obj, ospt_light);
 }
 
 ERL_NIF_TERM osp_newMaterial(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPMaterial obj = ospNewMaterial("unused", (const char *) type.data);
+    if(!obj) make_error(atom_error, "invalid material type");
+    return osp_make_object(env, (OSPObject) obj, ospt_material);
 }
 
 ERL_NIF_TERM osp_newRenderer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -384,12 +404,20 @@ ERL_NIF_TERM osp_newSharedData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
 ERL_NIF_TERM osp_newTexture(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPTexture obj = ospNewTexture((const char *) type.data);
+    if(!obj) make_error(atom_error, "invalid texture type");
+    return osp_make_object(env, (OSPObject) obj, ospt_texture);
 }
 
 ERL_NIF_TERM osp_newTransferFunction(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary type;
+    if(!enif_inspect_binary(env, argv[0], &type)) make_error(atom_badarg, "Type");
+    OSPTransferFunction obj = ospNewTransferFunction((const char *) type.data);
+    if(!obj) make_error(atom_error, "invalid transferfunction type");
+    return osp_make_object(env, (OSPObject) obj, ospt_transferFunction);
 }
 
 ERL_NIF_TERM osp_newVolume(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -443,7 +471,31 @@ ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    int type_v;
+    void * data_ptr;
+    ErlNifBinary binary;
+
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Object");
+    if(mem->type == ospt_device) make_error(atom_badarg, "is a device");
+
+    ErlNifBinary id;
+    if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
+
+    if(!enif_is_atom(env, argv[2])) make_error(atom_badarg, "Type");
+    if(!osp_atom_to_enum(osp_dataType, argv[2], &type_v)) make_error(atom_badarg, "Type");
+
+    if(enif_is_binary(env, argv[3])) {
+        if(!enif_inspect_binary(env, argv[3], &binary)) make_error(atom_badarg, "Data");
+        data_ptr = binary.data;
+    } else {
+        osp_mem_t *obj;
+        if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
+        data_ptr = obj->obj;
+    }
+    ospSetParam(mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
+    return atom_ok;
+
 }
 
 ERL_NIF_TERM osp_shutdown(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -515,21 +567,21 @@ static ErlNifFunc nif_funcs[] =
    {"isReady", 2, osp_isReady, 0},
    {"loadModule_nif", 1, osp_loadModule, 0},
    {"mapFrameBuffer", 2, osp_mapFrameBuffer, 0},
-   {"newCamera", 1, osp_newCamera, 0},
+   {"newCamera_nif", 1, osp_newCamera, 0},
    {"newData", 4, osp_newData, 0},
    {"newDevice_nif", 1, osp_newDevice, 0},
    {"newFrameBuffer", 4, osp_newFrameBuffer, 0},
-   {"newGeometry", 1, osp_newGeometry, 0},
+   {"newGeometry_nif", 1, osp_newGeometry, 0},
    {"newGroup", 0, osp_newGroup, 0},
    {"newImageOperation", 1, osp_newImageOperation, 0},
    {"newInstance", 1, osp_newInstance, 0},
-   {"newLight", 1, osp_newLight, 0},
-   {"newMaterial", 1, osp_newMaterial, 0},
+   {"newLight_nif", 1, osp_newLight, 0},
+   {"newMaterial_nif", 1, osp_newMaterial, 0},
    {"newRenderer", 1, osp_newRenderer, 0},
    {"newSharedData", 8, osp_newSharedData, 0},
-   {"newTexture", 1, osp_newTexture, 0},
-   {"newTransferFunction", 1, osp_newTransferFunction, 0},
-   {"newVolume", 1, osp_newVolume, 0},
+   {"newTexture_nif", 1, osp_newTexture, 0},
+   {"newTransferFunction_nif", 1, osp_newTransferFunction, 0},
+   {"newVolume_nif", 1, osp_newVolume, 0},
    {"newVolumetricModel", 1, osp_newVolumetricModel, 0},
    {"newWorld", 0, osp_newWorld, 0},
    {"release", 1, osp_release, 0},
@@ -538,7 +590,7 @@ static ErlNifFunc nif_funcs[] =
    {"resetAccumulation", 1, osp_resetAccumulation, 0},
    {"retain", 1, osp_retain, 0},
    {"setCurrentDevice", 1, osp_setCurrentDevice, 0},
-   {"setParam", 4, osp_setParam, 0},
+   {"setParam_nif", 4, osp_setParam, 0},
    {"shutdown", 0, osp_shutdown, 0},
    {"wait", 2, osp_wait, 0},
   };

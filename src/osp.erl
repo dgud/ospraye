@@ -53,6 +53,8 @@
          wait/1, wait/2
         ]).
 
+-export([data_to_binary/2]).
+
 -include("osp_types.hrl").
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -78,6 +80,13 @@
 -type volume() :: managedObject().
 -type volumetricModel() :: managedObject().
 -type world() :: managedObject().
+
+-type osp_id() :: atom() | string() | binary().
+-type osp_data() :: binary() | managedObject() | string() |
+                    atom() | number() | [number()] |
+                    {number(), number()} | {number(), number(), number()} |
+                    {number(), number(), number(), number()}.
+
 
 %% Device Initialization
 
@@ -109,12 +118,12 @@ setCurrentDevice(_Device) -> ?nif_stub.
 -spec getCurrentDevice() -> device().
 getCurrentDevice() -> ?nif_stub.
 
--spec deviceSetParam(Dev::device(), Id::binary(), Type::dataType(), Mem::binary()) -> ok.
+-spec deviceSetParam(Dev::device(), Id::osp_id(), Type::dataType(), Mem::osp_data()) -> ok.
 deviceSetParam(Device, Id, Type, Mem) ->
     deviceSetParam_nif(Device, id_to_string(Id), Type, data_to_binary(Type, Mem)).
 deviceSetParam_nif(_Device, _Id, _DataType, _Mem) -> ?nif_stub.
 
--spec deviceRemoveParam(Dev::device(), Id::binary) -> ok.
+-spec deviceRemoveParam(Dev::device(), Id::osp_id()) -> ok.
 deviceRemoveParam(Device, Id) ->
     deviceRemoveParam_nif(Device, id_to_string(Id)).
 deviceRemoveParam_nif(_Device, _Id) -> ?nif_stub.
@@ -160,35 +169,36 @@ loadModule_nif(_Name) ->
 
 %% OSPRay Data Arrays %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 
--spec newSharedData(SharedData :: binary(), Type :: dataType(), NumItems1 ::integer()) ->  data().
+-spec newSharedData(SharedData :: osp_data(), Type :: dataType(), NumItems1 ::integer()) ->
+          data().
 newSharedData(SharedData, Type, NumItems1) ->
     newSharedData(SharedData, Type, NumItems1,0,  1,0, 1,0).
 
--spec newSharedData(SharedData :: binary(), Type :: dataType(),
+-spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer()) -> data().
 newSharedData(SharedData, Type, NumItems1, ByteStride1) ->
     newSharedData(SharedData, Type, NumItems1,ByteStride1,  1,0, 1,0).
 
--spec newSharedData(SharedData :: binary(), Type :: dataType(),
+-spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer()) -> data().
 newSharedData(SharedData, Type, NumItems1, ByteStride1, NumItems2) ->
     newSharedData(SharedData, Type, NumItems1,ByteStride1,  NumItems2,0, 1,0).
 
--spec newSharedData(SharedData :: binary(), Type :: dataType(),
+-spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer(), ByteStride2 :: integer()) -> data().
 newSharedData(SharedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2) ->
     newSharedData(SharedData, Type, NumItems1,ByteStride1,  NumItems2,ByteStride2, 1,0).
 
--spec newSharedData(SharedData :: binary(), Type :: dataType(),
+-spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer(), ByteStride2 :: integer(),
                     NumItems3 ::integer()) -> data().
 newSharedData(SharedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2, NumItems3) ->
     newSharedData(SharedData, Type, NumItems1,ByteStride1,  NumItems2, ByteStride2, NumItems3,0).
 
--spec newSharedData(SharedData :: binary(), Type :: dataType(),
+-spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer(), ByteStride2 :: integer(),
                     NumItems3 ::integer(), ByteStride3 :: integer()
@@ -216,17 +226,21 @@ copyData(_Source, _Destination, _DestinationIndex1, _DestinationIndex2, _Destina
 
 %% Renderable Objects %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 
--spec newLight(Type::binary()) -> light().
-newLight(_Type) -> nif_stub.
+-spec newLight(Type::osp_id()) -> light().
+newLight(Type) -> newLight_nif(id_to_string(Type)).
+newLight_nif(_Type) -> nif_stub.
 
--spec newCamera(Type::binary()) -> camera().
-newCamera(_Type) -> nif_stub.
+-spec newCamera(Type::osp_id()) -> camera().
+newCamera(Type) -> newCamera_nif(id_to_string(Type)).
+newCamera_nif(_Type) -> nif_stub.
 
--spec newGeometry(Type::binary()) -> geometry().
-newGeometry(_Type) -> nif_stub.
+-spec newGeometry(Type::osp_id()) -> geometry().
+newGeometry(Type) -> newGeometry_nif(id_to_string(Type)).
+newGeometry_nif(_Type) -> nif_stub.
 
--spec newVolume(Type::binary()) -> volume().
-newVolume(_Type) -> nif_stub.
+-spec newVolume(Type::osp_id()) -> volume().
+newVolume(Type) -> newVolume_nif(id_to_string(Type)).
+newVolume_nif(_Type) -> nif_stub.
 
 -spec geometricModel() -> geometricModel().
 geometricModel() -> geometricModel(null).
@@ -240,14 +254,17 @@ newVolumetricModel(_Volume) -> ?nif_stub.
 
 % Model Meta-Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec newMaterial(MaterialType::binary()) ->  material().
-newMaterial(_MaterialType) -> ?nif_stub.
+-spec newMaterial(MaterialType::osp_id()) ->  material().
+newMaterial(MaterialType) -> newMaterial_nif(id_to_string(MaterialType)).
+newMaterial_nif(_MaterialType) -> ?nif_stub.
 
--spec newTransferFunction(Type::binary()) ->  transferFunction().
-newTransferFunction(_type) -> ?nif_stub.
+-spec newTransferFunction(Type::osp_id()) ->  transferFunction().
+newTransferFunction(Type) -> newTransferFunction_nif(id_to_string(Type)).
+newTransferFunction_nif(_type) -> ?nif_stub.
 
--spec newTexture(Type::binary()) ->  texture().
-newTexture(_type) -> ?nif_stub.
+-spec newTexture(Type::osp_id()) ->  texture().
+newTexture(Type) -> newTexture_nif(id_to_string(Type)).
+newTexture_nif(_type) -> ?nif_stub.
 
 %% Instancing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 
@@ -270,10 +287,12 @@ getBounds(_Object) -> ?nif_stub.
 
 %% Set a parameter, where 'mem' points the address of the type specified
 
--spec setParam(Object::object(), Id::binary(), Type :: dataType(), Mem :: binary()) ->  ok.
-setParam(_Object, _id, _Type, _mem) -> ?nif_stub.
+-spec setParam(Object::object(), Id::osp_id(), Type :: dataType(), Mem :: osp_data()) ->  ok.
+setParam(Device, Id, Type, Mem) ->
+    setParam_nif(Device, id_to_string(Id), Type, data_to_binary(Type, Mem)).
+setParam_nif(_Object, _id, _Type, _mem) -> ?nif_stub.
 
--spec removeParam(Object::object(), Id::binary()) ->  ok.
+-spec removeParam(Object::object(), Id::osp_id()) ->  ok.
 removeParam(_Object, _id) -> ?nif_stub.
 
 %% Make parameters which have been set visible to the object
@@ -302,7 +321,7 @@ newFrameBuffer(SizeX, SizeY, Format) ->
 newFrameBuffer(_size_x, _size_y, _format, _frameBufferChannels) -> ?nif_stub.
 
 
--spec newImageOperation(Type::binary()) ->  imageOperation().
+-spec newImageOperation(Type::osp_id()) ->  imageOperation().
 newImageOperation(_type) -> ?nif_stub.
 
 %% Pointer access (read-only) to the memory of the given frame buffer channel
@@ -325,7 +344,7 @@ resetAccumulation(_FrameBuffer) -> ?nif_stub.
 
 %% Frame Rendering %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec newRenderer(Type::binary()) ->  renderer().
+-spec newRenderer(Type::osp_id()) ->  renderer().
 newRenderer(_type) -> ?nif_stub.
 
 %% Render a frame (non-blocking), return a future to the task executed by Ray
@@ -369,7 +388,7 @@ data_to_binary(string, Data) ->
 data_to_binary(_, Data) when is_binary(Data) ->
     Data;
 data_to_binary(Type, Data) when is_reference(Data) ->
-    case Type of  %% Assert the reference have an object data type
+    case Type of %% Assert the reference have an object data type
         device -> ok;
         object -> ok;
         data -> ok;
@@ -397,49 +416,49 @@ data_to_binary(Type, Boolean) when is_boolean(Boolean) ->
         true  -> <<1:32/native>>;
         false -> <<0:32/native>>
     end;
-data_to_binary(T, Int) when is_integer(Int), T =:= char; T =:= uchar -> <<Int:8/native>>;
-data_to_binary(T, Ints)  when is_list(Ints),
-                              T =:= vec2c; T =:= vec3c; T =:= vec4c;
-                              T =:= vec2uc; T =:= vec3uc; T =:= vec4uc  ->
+data_to_binary(T, Int) when T =:= char; T =:= uchar -> <<Int:8/native>>;
+data_to_binary(T, [_|_] = Ints)
+  when T =:= vec2c; T =:= vec3c; T =:= vec4c;
+       T =:= vec2uc; T =:= vec3uc; T =:= vec4uc  ->
     << <<I:8/native>> || I <- Ints >>;
 
-data_to_binary(T, Int) when is_integer(Int), T =:= short; T =:= ushort ->
+data_to_binary(T, Int) when T =:= short; T =:= ushort ->
     <<Int:16/native>>;
-data_to_binary(T, Ints) when is_list(Ints),
-                             T =:= vec2s; T =:= vec3s; T =:= vec4s;
-                             T =:= vec2us; T =:= vec3us; T =:= vec4us->
+data_to_binary(T, [_|_] = Ints)
+  when T =:= vec2s; T =:= vec3s; T =:= vec4s;
+       T =:= vec2us; T =:= vec3us; T =:= vec4us->
     << <<I:16/native>> || I <- Ints >>;
 
-data_to_binary(T, Int) when is_integer(Int), T =:= int; T =:= uint ->
+data_to_binary(T, Int) when T =:= int; T =:= uint ->
     <<Int:32/native>>;
-data_to_binary(T, Ints) when is_list(Ints),
-                             T =:= vec2i; T =:= vec3i; T =:= vec4i;
-                             T =:= vec2ui; T =:= vec3ui; T =:= vec4ui;
-                             T =:= box1i; T =:= box2i; T =:= box3i, T =:= box4i ->
+data_to_binary(T, [_|_] = Ints)
+  when T =:= vec2i; T =:= vec3i; T =:= vec4i;
+       T =:= vec2ui; T =:= vec3ui; T =:= vec4ui;
+       T =:= box1i; T =:= box2i; T =:= box3i, T =:= box4i ->
     << <<I:32/unsigned-native>> || I <- Ints >>;
 
-data_to_binary(T, Int) when is_integer(Int), T =:= long; T =:= ulong ->
+data_to_binary(T, Int) when T =:= long; T =:= ulong ->
     <<Int:64/native>>;
-data_to_binary(T, Ints) when is_list(Ints),
-                             T =:= vec2l; T =:= vec3l; T =:= vec4l;
-                             T =:= vec2ul; T =:= vec3ul; T =:= vec4ul ->
+data_to_binary(T, [_|_] = Ints)
+  when T =:= vec2l; T =:= vec3l; T =:= vec4l;
+       T =:= vec2ul; T =:= vec3ul; T =:= vec4ul ->
     << <<I:64/unsigned-native>> || I <- Ints >>;
 
-data_to_binary(T, N) when is_number(N), T =:= half ->
+data_to_binary(T, N) when T =:= half ->
     <<N:16/float-native>>;
-data_to_binary(T, Ns) when is_list(Ns), T =:= vec2h; T =:= vec3h; T =:= vec4h ->
+data_to_binary(T, [_|_] = Ns) when T =:= vec2h; T =:= vec3h; T =:= vec4h ->
     << <<N:16/float-native>> || N <- Ns >>;
-data_to_binary(T, N) when is_number(N), T =:= float ->
+data_to_binary(T, N) when T =:= float ->
     <<N:32/float-native>>;
-data_to_binary(T, Ns) when is_list(Ns),
-                           T =:= vec2f; T =:= vec3f; T =:= vec4f;
-                           T =:= box1f; T =:= box2f; T =:= box3f, T =:= box4f;
-                           T =:= linear2; T =:= linear3f; T =:= affine2f; T =:= affine3f;
-                           T =:= quatf ->
+data_to_binary(T, [_|_] = Ns)
+  when T =:= vec2f; T =:= vec3f; T =:= vec4f;
+       T =:= box1f; T =:= box2f; T =:= box3f, T =:= box4f;
+       T =:= linear2; T =:= linear3f; T =:= affine2f; T =:= affine3f;
+       T =:= quatf ->
     << <<N:32/float-native>> || N <- Ns >>;
-data_to_binary(T, N) when is_number(N), T =:= double ->
+data_to_binary(T, N) when T =:= double ->
     <<N:64/float-native>>;
-data_to_binary(T, Ns) when is_list(Ns), T =:= vec2d; T =:= vec3d; T =:= vec4d ->
+data_to_binary(T, [_|_] = Ns) when T =:= vec2d; T =:= vec3d; T =:= vec4d ->
     << <<N:64/float-native>> || N <- Ns >>;
 
 data_to_binary(T, Tuple) when is_tuple(Tuple) ->
