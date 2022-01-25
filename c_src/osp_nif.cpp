@@ -16,7 +16,7 @@
 //#include <windows.h>
 #endif
 #include <string.h>
-
+#include <vector>
 #include "ospray/ospray.h"
 
 typedef enum {
@@ -74,17 +74,17 @@ extern "C" {
     ERL_NIF_TERM osp_newLight(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newMaterial(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newRenderer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-    ERL_NIF_TERM osp_newSharedData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    ERL_NIF_TERM osp_newCopiedData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newTexture(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newTransferFunction(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newVolume(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newVolumetricModel(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_newWorld(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-    ERL_NIF_TERM osp_release(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    // ERL_NIF_TERM osp_release(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_removeParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_renderFrame(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_resetAccumulation(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-    ERL_NIF_TERM osp_retain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    // ERL_NIF_TERM osp_retain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_shutdown(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -263,7 +263,7 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     } else {
         osp_mem_t *obj;
         if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
-        data_ptr = obj->obj;
+        data_ptr = &obj->obj;
     }
     ospDeviceSetParam((OSPDevice) mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
     return atom_ok;
@@ -397,9 +397,51 @@ ERL_NIF_TERM osp_newRenderer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     make_error(atom_error, "NYI");
 }
 
-ERL_NIF_TERM osp_newSharedData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM osp_newCopiedData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    ErlNifBinary Data;
+    int Type;
+    ErlNifUInt64 NumItems1, NumItems2, NumItems3;
+    ErlNifSInt64 ByteStride1, ByteStride2, ByteStride3;
+    void *data_ptr;
+    std::vector <OSPObject> lists_vec;
+    if(enif_is_binary(env, argv[0])) {
+        if(!enif_inspect_binary(env, argv[0], &Data)) make_error(atom_badarg, "CopiedData");
+        data_ptr = Data.data;
+    } else {
+        ERL_NIF_TERM lists_l, lists_h, lists_t;
+        osp_mem_t *mem;
+        if(!enif_is_list(env, argv[0])) make_error(atom_badarg, "CopiedData");
+        lists_l = argv[0];
+        while(enif_get_list_cell(env, lists_l, &lists_h, &lists_t)) {
+            if(!enif_get_resource(env, lists_h, osp_resource, (void **) &mem))
+                make_error(atom_badarg, "CopiedData");
+            lists_vec.push_back(mem->obj);
+            lists_l = lists_t;
+        };
+        data_ptr = lists_vec.data();
+    }
+
+    if(!enif_is_atom(env, argv[1])) make_error(atom_badarg, "Type");
+    if(!osp_atom_to_enum(osp_dataType, argv[1], &Type)) make_error(atom_badarg, "Type");
+
+    if(!enif_get_uint64(env, argv[2], &NumItems1)) make_error(atom_badarg, "NumItems1");
+    if(!enif_get_int64(env,  argv[3], &ByteStride1)) make_error(atom_badarg, "ByteStride1");
+    if(!enif_get_uint64(env, argv[4], &NumItems2)) make_error(atom_badarg, "NumItems2");
+    if(!enif_get_int64(env,  argv[5], &ByteStride2)) make_error(atom_badarg, "ByteStride2");
+    if(!enif_get_uint64(env, argv[6], &NumItems3)) make_error(atom_badarg, "NumItems3");
+    if(!enif_get_int64(env,  argv[7], &ByteStride3)) make_error(atom_badarg, "ByteStride3");
+
+    OSPData temp = ospNewSharedData(data_ptr, (OSPDataType) Type,
+                                    NumItems1, ByteStride1,
+                                    NumItems2, ByteStride2,
+                                    NumItems3, ByteStride3);
+    if(!temp) make_error(atom_error, "invalid data");
+    // Copy data, so it can be gc'ed/deleted in erlang
+    OSPData obj = ospNewData((OSPDataType) Type, NumItems1, NumItems2, NumItems3);
+    ospCopyData(temp, obj, 0, 0, 0);
+    ospRelease(temp);
+    return osp_make_object(env, (OSPObject) obj, ospt_data);
 }
 
 ERL_NIF_TERM osp_newTexture(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -435,14 +477,21 @@ ERL_NIF_TERM osp_newWorld(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     make_error(atom_error, "NYI");
 }
 
-ERL_NIF_TERM osp_release(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    make_error(atom_error, "NYI");
-}
+// ERL_NIF_TERM osp_release(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// {
+//     make_error(atom_error, "NYI");
+// }
 
 ERL_NIF_TERM osp_removeParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    make_error(atom_error, "NYI");
+    osp_mem_t *mem;
+    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Object");
+    if(mem->type == ospt_device) make_error(atom_badarg, "is a device");
+
+    ErlNifBinary id;
+    if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
+    ospRemoveParam(mem->obj,  (const char*) id.data);
+    return atom_ok;
 }
 
 ERL_NIF_TERM osp_renderFrame(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -455,10 +504,10 @@ ERL_NIF_TERM osp_resetAccumulation(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     make_error(atom_error, "NYI");
 }
 
-ERL_NIF_TERM osp_retain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    make_error(atom_error, "NYI");
-}
+// ERL_NIF_TERM osp_retain(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// {
+//     make_error(atom_error, "NYI");
+// }
 
 ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -469,6 +518,7 @@ ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return atom_ok;
 }
 
+// Set a parameter, where 'mem' points the address of the type specified
 ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     osp_mem_t *mem;
@@ -491,7 +541,7 @@ ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     } else {
         osp_mem_t *obj;
         if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
-        data_ptr = obj->obj;
+        data_ptr = &obj->obj;
     }
     ospSetParam(mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
     return atom_ok;
@@ -578,17 +628,17 @@ static ErlNifFunc nif_funcs[] =
    {"newLight_nif", 1, osp_newLight, 0},
    {"newMaterial_nif", 1, osp_newMaterial, 0},
    {"newRenderer", 1, osp_newRenderer, 0},
-   {"newSharedData", 8, osp_newSharedData, 0},
+   {"newCopiedData_nif", 8, osp_newCopiedData, 0},
    {"newTexture_nif", 1, osp_newTexture, 0},
    {"newTransferFunction_nif", 1, osp_newTransferFunction, 0},
    {"newVolume_nif", 1, osp_newVolume, 0},
    {"newVolumetricModel", 1, osp_newVolumetricModel, 0},
    {"newWorld", 0, osp_newWorld, 0},
-   {"release", 1, osp_release, 0},
-   {"removeParam", 2, osp_removeParam, 0},
+   // {"release", 1, osp_release, 0},
+   {"removeParam_nif", 2, osp_removeParam, 0},
    {"renderFrame", 4, osp_renderFrame, 0},
    {"resetAccumulation", 1, osp_resetAccumulation, 0},
-   {"retain", 1, osp_retain, 0},
+   // {"retain", 1, osp_retain, 0},
    {"setCurrentDevice", 1, osp_setCurrentDevice, 0},
    {"setParam_nif", 4, osp_setParam, 0},
    {"shutdown", 0, osp_shutdown, 0},

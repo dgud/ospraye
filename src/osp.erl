@@ -36,24 +36,26 @@
          newLight/1,
          newMaterial/1,
          newRenderer/1,
-         newSharedData/3, newSharedData/4, newSharedData/5, newSharedData/6, newSharedData/7, newSharedData/8,
+         newCopiedData/3, newCopiedData/4, newCopiedData/5, newCopiedData/6, newCopiedData/7, newCopiedData/8,
          newTexture/1,
          newTransferFunction/1,
          newVolume/1,
          newVolumetricModel/0, newVolumetricModel/1,
          newWorld/0,
-         release/1,
+         %%  release/1,
          removeParam/2,
          renderFrame/4,
          resetAccumulation/1,
-         retain/1,
+         %% retain/1,
          setCurrentDevice/1,
          setParam/4,
+         %% Shortcuts to setParam/4
+         setString/3, setObject/3, setBool/3, setInt/3, setFloat/3,
          shutdown/0,
          wait/1, wait/2
         ]).
 
--export([data_to_binary/2]).
+-export([single_data/2, multiple_data/2]).
 
 -include("osp_types.hrl").
 
@@ -82,11 +84,12 @@
 -type world() :: managedObject().
 
 -type osp_id() :: atom() | string() | binary().
--type osp_data() :: binary() | managedObject() | string() |
-                    atom() | number() | [number()] |
-                    {number(), number()} | {number(), number(), number()} |
-                    {number(), number(), number(), number()}.
-
+-type param_data() :: binary() | managedObject() |
+                      string() |atom() |
+                      number() | [number()] |
+                      {number(), number()} | {number(), number(), number()} |
+                      {number(), number(), number(), number()}.
+-type multiple_data() :: binary() | [managedObject()] | [number()] | [tuple()] | [[number()]].
 
 %% Device Initialization
 
@@ -110,7 +113,6 @@ newDevice(Type) -> newDevice_nif(id_to_string(Type)).
 newDevice_nif(_DeviceType) -> ?nif_stub.
 
 %% Set current device the API responds to
-
 -spec setCurrentDevice(device()) -> ok.
 setCurrentDevice(_Device) -> ?nif_stub.
 
@@ -118,9 +120,9 @@ setCurrentDevice(_Device) -> ?nif_stub.
 -spec getCurrentDevice() -> device().
 getCurrentDevice() -> ?nif_stub.
 
--spec deviceSetParam(Dev::device(), Id::osp_id(), Type::dataType(), Mem::osp_data()) -> ok.
+-spec deviceSetParam(Dev::device(), Id::osp_id(), Type::dataType(), Mem::param_data()) -> ok.
 deviceSetParam(Device, Id, Type, Mem) ->
-    deviceSetParam_nif(Device, id_to_string(Id), Type, data_to_binary(Type, Mem)).
+    deviceSetParam_nif(Device, id_to_string(Id), Type, single_data(Type, Mem)).
 deviceSetParam_nif(_Device, _Id, _DataType, _Mem) -> ?nif_stub.
 
 -spec deviceRemoveParam(Dev::device(), Id::osp_id()) -> ok.
@@ -169,41 +171,45 @@ loadModule_nif(_Name) ->
 
 %% OSPRay Data Arrays %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 
--spec newSharedData(SharedData :: osp_data(), Type :: dataType(), NumItems1 ::integer()) ->
+-spec newCopiedData(CopiedData :: multiple_data(), Type :: dataType(), NumItems1 ::integer()) ->
           data().
-newSharedData(SharedData, Type, NumItems1) ->
-    newSharedData(SharedData, Type, NumItems1,0,  1,0, 1,0).
+newCopiedData(CopiedData, Type, NumItems1) ->
+    newCopiedData(CopiedData, Type, NumItems1,0,  1,0, 1,0).
 
--spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
+-spec newCopiedData(CopiedData :: multiple_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer()) -> data().
-newSharedData(SharedData, Type, NumItems1, ByteStride1) ->
-    newSharedData(SharedData, Type, NumItems1,ByteStride1,  1,0, 1,0).
+newCopiedData(CopiedData, Type, NumItems1, ByteStride1) ->
+    newCopiedData(CopiedData, Type, NumItems1,ByteStride1,  1,0, 1,0).
 
--spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
+-spec newCopiedData(CopiedData :: multiple_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer()) -> data().
-newSharedData(SharedData, Type, NumItems1, ByteStride1, NumItems2) ->
-    newSharedData(SharedData, Type, NumItems1,ByteStride1,  NumItems2,0, 1,0).
+newCopiedData(CopiedData, Type, NumItems1, ByteStride1, NumItems2) ->
+    newCopiedData(CopiedData, Type, NumItems1,ByteStride1,  NumItems2,0, 1,0).
 
--spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
+-spec newCopiedData(CopiedData :: multiple_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer(), ByteStride2 :: integer()) -> data().
-newSharedData(SharedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2) ->
-    newSharedData(SharedData, Type, NumItems1,ByteStride1,  NumItems2,ByteStride2, 1,0).
+newCopiedData(CopiedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2) ->
+    newCopiedData(CopiedData, Type, NumItems1,ByteStride1,  NumItems2,ByteStride2, 1,0).
 
--spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
+-spec newCopiedData(CopiedData :: multiple_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer(), ByteStride2 :: integer(),
                     NumItems3 ::integer()) -> data().
-newSharedData(SharedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2, NumItems3) ->
-    newSharedData(SharedData, Type, NumItems1,ByteStride1,  NumItems2, ByteStride2, NumItems3,0).
+newCopiedData(CopiedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2, NumItems3) ->
+    newCopiedData(CopiedData, Type, NumItems1,ByteStride1,  NumItems2, ByteStride2, NumItems3,0).
 
--spec newSharedData(SharedData :: osp_data(), Type :: dataType(),
+-spec newCopiedData(CopiedData :: multiple_data(), Type :: dataType(),
                     NumItems1 ::integer(), ByteStride1 :: integer(),
                     NumItems2 ::integer(), ByteStride2 :: integer(),
                     NumItems3 ::integer(), ByteStride3 :: integer()
                    ) ->  data().
-newSharedData(_SharedData, _Type, _NumItems1, _ByteStride1, _NumItems2, _ByteStride2, _NumItems3, _ByteStride3) -> ?nif_stub.
+newCopiedData(CopiedData, Type, NumItems1, ByteStride1, NumItems2, ByteStride2, NumItems3, ByteStride3) ->
+    newCopiedData_nif(multiple_data(Type, CopiedData), Type,
+                      NumItems1, ByteStride1, NumItems2, ByteStride2, NumItems3, ByteStride3).
+newCopiedData_nif(_CopiedData, _Type,
+                  _NumItems1, _ByteStride1, _NumItems2, _ByteStride2, _NumItems3, _ByteStride3) -> ?nif_stub.
 
 -spec newData(Type::dataType(), NumItems1::integer()) ->  data().
 newData(Type, NumItems1) -> newData(Type, NumItems1, 1, 1).
@@ -285,27 +291,47 @@ getBounds(_Object) -> ?nif_stub.
 
 %% Object + Parameter Lifetime Management %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 
-%% Set a parameter, where 'mem' points the address of the type specified
+-spec setString(Object::object(), Id::osp_id(), String::osp_id()) ->  ok.
+setString(Obj, Id, String) ->
+    setParam_nif(Obj, id_to_string(Id), string, id_to_string(String)).
 
--spec setParam(Object::object(), Id::osp_id(), Type :: dataType(), Mem :: osp_data()) ->  ok.
+-spec setObject(Object::object(), Id::osp_id(), Other::object()) ->  ok.
+setObject(Obj, Id, Other) ->
+    setParam_nif(Obj, id_to_string(Id), object, Other).
+
+-spec setBool(Object::object(), Id::osp_id(), Bool::boolean()) ->  ok.
+setBool(Obj, Id, Bool) ->
+    setParam_nif(Obj, id_to_string(Id), bool, single_data(bool, Bool)).
+
+-spec setInt(Object::object(), Id::osp_id(), Num::integer()) ->  ok.
+setInt(Obj, Id, Num) ->
+    setParam_nif(Obj, id_to_string(Id), int, single_data(int, Num)).
+
+-spec setFloat(Object::object(), Id::osp_id(), Num::float()) ->  ok.
+setFloat(Obj, Id, Num) ->
+    setParam_nif(Obj, id_to_string(Id), float, single_data(float, Num)).
+
+-spec setParam(Object::object(), Id::osp_id(), Type :: dataType(), Mem :: param_data()) ->  ok.
 setParam(Device, Id, Type, Mem) ->
-    setParam_nif(Device, id_to_string(Id), Type, data_to_binary(Type, Mem)).
+    setParam_nif(Device, id_to_string(Id), Type, single_data(Type, Mem)).
 setParam_nif(_Object, _id, _Type, _mem) -> ?nif_stub.
 
 -spec removeParam(Object::object(), Id::osp_id()) ->  ok.
-removeParam(_Object, _id) -> ?nif_stub.
+removeParam(Object, Id) ->
+    removeParam_nif(Object, id_to_string(Id)).
+removeParam_nif(_Object, _id) -> ?nif_stub.
 
 %% Make parameters which have been set visible to the object
 -spec commit(Object::object()) -> ok.
 commit(_Object) -> ?nif_stub.
 
-%% Reduce the application-side object ref count by 1
--spec release(Object::object()) ->  ok.
-release(_Object) -> ?nif_stub.
+%% %% Reduce the application-side object ref count by 1
+%% -spec release(Object::object()) ->  ok.
+%% release(_Object) -> ?nif_stub.
 
-%% Increace the application-side object ref count by 1
--spec retain(Object::object()) ->  ok.
-retain(_Object) -> ?nif_stub.
+%% %% Increace the application-side object ref count by 1
+%% -spec retain(Object::object()) ->  ok.
+%% retain(_Object) -> ?nif_stub.
 
 %% FrameBuffer Manipulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
 
@@ -383,87 +409,295 @@ id_to_string(Id) when is_atom(Id) ->
 id_to_string(Id) when is_list(Id); is_binary(Id) ->
     unicode:characters_to_binary([Id|[0]]).
 
-data_to_binary(string, Data) ->
+single_data(string, Data) ->
     id_to_string(Data);
-data_to_binary(_, Data) when is_binary(Data) ->
+single_data(_, Data) when is_binary(Data) ->
     Data;
-data_to_binary(Type, Data) when is_reference(Data) ->
-    case Type of %% Assert the reference have an object data type
-        device -> ok;
-        object -> ok;
-        data -> ok;
-        camera -> ok;
-        framebuffer -> ok;
-        future -> ok;
-        geometric_model -> ok;
-        geometry -> ok;
-        group -> ok;
-        image_operation -> ok;
-        instance -> ok;
-        light -> ok;
-        material -> ok;
-        renderer -> ok;
-        texture -> ok;
-        transfer_function -> ok;
-        volume -> ok;
-        volumetric_model -> ok;
-        world -> ok
-    end,
+single_data(Type, Data) when is_reference(Data) ->
+    true = is_object(Type),
     Data;
-data_to_binary(Type, Boolean) when is_boolean(Boolean) ->
-    bool = Type,
-    case Boolean of
-        true  -> <<1:32/native>>;
-        false -> <<0:32/native>>
+single_data(Type, Data) ->
+    Fun = convert(Type),
+    Fun(Data).
+
+multiple_data(_Type, Data) when is_binary(Data) ->
+    Data;
+multiple_data(Type, [Entry|_] = Data) when is_reference(Entry) ->
+    true = is_object(Type),
+    Data;
+multiple_data(Type, [Entry|_] = Data) when is_list(Entry); is_tuple(Entry) ->
+    Fun = convert(Type),
+    << <<(Fun(E))/binary>> || E <- Data >>;
+multiple_data(Type, Data) when is_list(Data) ->
+    {Sz, FlatType} = flat_type(Type),
+    Fun = convert(FlatType),
+    Bin = << <<(Fun(E))/binary>> || E <- Data >>,
+    0 = byte_size(Bin) rem Sz,  %% Assert
+    Bin.
+
+flat_type(T) when T =:= vec2c; T =:= vec2uc ->
+    {2, char};
+flat_type(T) when T =:= vec3c; T =:= vec3uc ->
+    {3, char};
+flat_type(T) when T =:= vec4c; T =:= vec4uc ->
+    {4, char};
+flat_type(T) when T =:= vec2s; T =:= vec2us ->
+    {4, short};
+flat_type(T) when T =:= vec3s; T =:= vec3us ->
+    {6, short};
+flat_type(T) when T =:= vec4s; T =:= vec4us ->
+    {8, short};
+flat_type(T) when T =:= vec2i; T =:= vec2ui; box1i ->
+    {8, int};
+flat_type(T) when T =:= vec3i; T =:= vec3ui ->
+    {12, int};
+flat_type(T) when T =:= vec4i; T =:= vec4ui; box2i ->
+    {16, int};
+flat_type(T) when T =:= box3i ->
+    {24, int};
+flat_type(T) when T =:= box4i ->
+    {32, int};
+flat_type(T) when T =:= vec2l; T =:= vec2ul ->
+    {16, long};
+flat_type(T) when T =:= vec3l; T =:= vec3ul ->
+    {24, long};
+flat_type(T) when T =:= vec4l; T =:= vec4ul ->
+    {32, long};
+flat_type(T) when T =:= vec2h ->
+    {4, half};
+flat_type(T) when T =:= vec3h ->
+    {6, half};
+flat_type(T) when T =:= vec4h ->
+    {8, half};
+flat_type(T) when T =:= vec2f; T =:= box1f ->
+    {8, float};
+flat_type(T) when T =:= vec3f ->
+    {12, float};
+flat_type(T) when T =:= vec4f; T=:=box2f; T =:= linear2f; T =:= quatf ->
+    {16, float};
+flat_type(T) when T =:= vec2d ->
+    {16, double};
+flat_type(T) when T =:= vec3d ->
+    {24, double};
+flat_type(T) when T =:= vec4d ->
+    {32, double};
+flat_type(T) when T =:= box3f; T =:= affine2f ->
+    {24, float};
+flat_type(T) when T =:= box4f ->
+    {32, float};
+flat_type(T) when T =:= linear3f ->
+    {36, float};
+flat_type(T) when T =:= affine3f ->
+    {48, float};
+
+flat_type(Flat) ->
+    {1, Flat}.  %% Ignore sz
+
+
+convert(bool) ->
+    fun(true)  -> <<1:32/native>>;
+       (false) -> <<0:32/native>>
     end;
-data_to_binary(T, Int) when T =:= char; T =:= uchar -> <<Int:8/native>>;
-data_to_binary(T, [_|_] = Ints)
-  when T =:= vec2c; T =:= vec3c; T =:= vec4c;
-       T =:= vec2uc; T =:= vec3uc; T =:= vec4uc  ->
-    << <<I:8/native>> || I <- Ints >>;
 
-data_to_binary(T, Int) when T =:= short; T =:= ushort ->
-    <<Int:16/native>>;
-data_to_binary(T, [_|_] = Ints)
-  when T =:= vec2s; T =:= vec3s; T =:= vec4s;
-       T =:= vec2us; T =:= vec3us; T =:= vec4us->
-    << <<I:16/native>> || I <- Ints >>;
+convert(T) when T =:= char; T =:= uchar, T =:= byte, T =:= raw ->
+    fun(Num) -> <<Num:8/native>> end;
+convert(T) when T =:= vec2c; T =:= vec2uc ->
+    fun({N1, N2}) -> <<N1:8/native, N2:8/native>>;
+       ([N1, N2]) -> <<N1:8/native, N2:8/native>>
+    end;
+convert(T) when T =:= vec3c; T =:= vec3uc ->
+    fun({N1, N2, N3}) -> <<N1:8/native, N2:8/native, N3:8/native>>;
+       ([N1, N2, N3]) -> <<N1:8/native, N2:8/native, N3:8/native>>
+    end;
+convert(T) when T =:= vec4c; T =:= vec4uc ->
+    fun({N1, N2, N3, N4}) -> <<N1:8/native, N2:8/native, N3:8/native, N4:8/native>>;
+       ([N1, N2, N3, N4]) -> <<N1:8/native, N2:8/native, N3:8/native, N4:8/native>>
+    end;
 
-data_to_binary(T, Int) when T =:= int; T =:= uint ->
-    <<Int:32/native>>;
-data_to_binary(T, [_|_] = Ints)
-  when T =:= vec2i; T =:= vec3i; T =:= vec4i;
-       T =:= vec2ui; T =:= vec3ui; T =:= vec4ui;
-       T =:= box1i; T =:= box2i; T =:= box3i, T =:= box4i ->
-    << <<I:32/unsigned-native>> || I <- Ints >>;
+convert(T) when T =:= short; T =:= ushort ->
+    fun(Num) -> <<Num:16/native>> end;
+convert(T) when T =:= vec2s; T =:= vec2us ->
+    fun({N1, N2}) -> <<N1:16/native, N2:16/native>>;
+       ([N1, N2]) -> <<N1:16/native, N2:16/native>>
+    end;
+convert(T) when T =:= vec3s; T =:= vec3us ->
+    fun({N1, N2, N3}) -> <<N1:16/native, N2:16/native, N3:16/native>>;
+       ([N1, N2, N3]) -> <<N1:16/native, N2:16/native, N3:16/native>>
+    end;
+convert(T) when T =:= vec4s; T =:= vec4us ->
+    fun({N1, N2, N3, N4}) -> <<N1:16/native, N2:16/native, N3:16/native, N4:16/native>>;
+       ([N1, N2, N3, N4]) -> <<N1:16/native, N2:16/native, N3:16/native, N4:16/native>>
+    end;
 
-data_to_binary(T, Int) when T =:= long; T =:= ulong ->
-    <<Int:64/native>>;
-data_to_binary(T, [_|_] = Ints)
-  when T =:= vec2l; T =:= vec3l; T =:= vec4l;
-       T =:= vec2ul; T =:= vec3ul; T =:= vec4ul ->
-    << <<I:64/unsigned-native>> || I <- Ints >>;
+convert(T) when T =:= int; T =:= uint ->
+    fun(Num) -> <<Num:32/native>> end;
+convert(T) when T =:= vec2i; T =:= vec2ui; T =:= box1i ->
+    fun({N1, N2}) -> <<N1:32/native, N2:32/native>>;
+       ([N1, N2]) -> <<N1:32/native, N2:32/native>>
+    end;
+convert(T) when T =:= vec3i; T =:= vec3ui ->
+    fun({N1, N2, N3}) -> <<N1:32/native, N2:32/native, N3:32/native>>;
+       ([N1, N2, N3]) -> <<N1:32/native, N2:32/native, N3:32/native>>
+    end;
+convert(T) when T =:= vec4i; T =:= vec4ui; T =:= box2i ->
+    fun({N1, N2, N3, N4}) ->
+            <<N1:32/native, N2:32/native, N3:32/native, N4:32/native>>;
+       ([N1, N2, N3, N4]) ->
+            <<N1:32/native, N2:32/native, N3:32/native, N4:32/native>>
+    end;
+convert(T) when T =:= box3i ->
+    fun({N1, N2, N3, N4, N5, N6}) ->
+            <<N1:32/native, N2:32/native, N3:32/native,
+              N4:32/native, N5:32/native, N6:32/native>>;
+       ([N1, N2, N3, N4, N5, N6]) ->
+            <<N1:32/native, N2:32/native, N3:32/native,
+              N4:32/native, N5:32/native, N6:32/native>>
+    end;
+convert(T) when T =:= box4i ->
+    fun({N1, N2, N3, N4, N5, N6, N7, N8}) ->
+            <<N1:32/native, N2:32/native, N3:32/native, N4:32/native,
+              N5:32/native, N6:32/native, N7:32/native, N8:32/native>>;
+       ([N1, N2, N3, N4, N5, N6, N7, N8]) ->
+            <<N1:32/native, N2:32/native, N3:32/native, N4:32/native,
+              N5:32/native, N6:32/native, N7:32/native, N8:32/native>>
+    end;
 
-data_to_binary(T, N) when T =:= half ->
-    <<N:16/float-native>>;
-data_to_binary(T, [_|_] = Ns) when T =:= vec2h; T =:= vec3h; T =:= vec4h ->
-    << <<N:16/float-native>> || N <- Ns >>;
-data_to_binary(T, N) when T =:= float ->
-    <<N:32/float-native>>;
-data_to_binary(T, [_|_] = Ns)
-  when T =:= vec2f; T =:= vec3f; T =:= vec4f;
-       T =:= box1f; T =:= box2f; T =:= box3f, T =:= box4f;
-       T =:= linear2; T =:= linear3f; T =:= affine2f; T =:= affine3f;
-       T =:= quatf ->
-    << <<N:32/float-native>> || N <- Ns >>;
-data_to_binary(T, N) when T =:= double ->
-    <<N:64/float-native>>;
-data_to_binary(T, [_|_] = Ns) when T =:= vec2d; T =:= vec3d; T =:= vec4d ->
-    << <<N:64/float-native>> || N <- Ns >>;
+convert(T) when T =:= long; T =:= ulong ->
+    fun(Num) -> <<Num:64/native>> end;
+convert(T) when T =:= vec2l; T =:= vec2ul ->
+    fun({N1, N2}) -> <<N1:64/native, N2:64/native>>;
+       ([N1, N2]) -> <<N1:64/native, N2:64/native>>
+    end;
+convert(T) when T =:= vec3l; T =:= vec3ul ->
+    fun({N1, N2, N3}) -> <<N1:64/native, N2:64/native, N3:64/native>>;
+       ([N1, N2, N3]) -> <<N1:64/native, N2:64/native, N3:64/native>>
+    end;
+convert(T) when T =:= vec4l; T =:= vec4ul ->
+    fun({N1, N2, N3, N4}) -> <<N1:64/native, N2:64/native, N3:64/native, N4:64/native>>;
+       ([N1, N2, N3, N4]) -> <<N1:64/native, N2:64/native, N3:64/native, N4:64/native>>
+    end;
 
-data_to_binary(T, Tuple) when is_tuple(Tuple) ->
-    data_to_binary(T, tuple_to_list(Tuple)).
+convert(T) when T =:= half ->
+    fun(Num) -> <<Num:16/float-native>> end;
+convert(T) when T =:= vec2h ->
+    fun({N1, N2}) -> <<N1:16/float-native, N2:16/float-native>>;
+       ([N1, N2]) -> <<N1:16/float-native, N2:16/float-native>>
+    end;
+convert(T) when T =:= vec3h ->
+    fun({N1, N2, N3}) -> <<N1:16/float-native, N2:16/float-native, N3:16/float-native>>;
+       ([N1, N2, N3]) -> <<N1:16/float-native, N2:16/float-native, N3:16/float-native>>
+    end;
+convert(T) when T =:= vec4h ->
+    fun({N1, N2, N3, N4}) -> <<N1:16/float-native, N2:16/float-native, N3:16/float-native, N4:16/float-native>>;
+       ([N1, N2, N3, N4]) -> <<N1:16/float-native, N2:16/float-native, N3:16/float-native, N4:16/float-native>>
+    end;
 
+convert(T) when T =:= float ->
+    fun(Num) -> <<Num:32/float-native>> end;
+convert(T) when T =:= vec2f; T =:= box1f ->
+    fun({N1, N2}) -> <<N1:32/float-native, N2:32/float-native>>;
+       ([N1, N2]) -> <<N1:32/float-native, N2:32/float-native>>
+    end;
+convert(T) when T =:= vec3f ->
+    fun({N1, N2, N3}) -> <<N1:32/float-native, N2:32/float-native, N3:32/float-native>>;
+       ([N1, N2, N3]) -> <<N1:32/float-native, N2:32/float-native, N3:32/float-native>>
+    end;
+convert(T) when T =:= vec4f; T =:= box2f; T =:= linear2f; T =:= quatf ->
+    fun({N1, N2, N3, N4}) -> <<N1:32/float-native, N2:32/float-native, N3:32/float-native, N4:32/float-native>>;
+       ([N1, N2, N3, N4]) -> <<N1:32/float-native, N2:32/float-native, N3:32/float-native, N4:32/float-native>>
+    end;
+
+convert(T) when T =:= box3f; T =:= affine2f ->
+    fun({N1, N2, N3, N4, N5, N6}) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native
+            >>;
+       ([N1, N2, N3, N4, N5, N6]) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native>>
+    end;
+convert(T) when T =:= box4f ->
+    fun({N1, N2, N3, N4, N5, N6, N7, N8}) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native,
+              N7:32/float-native, N8:32/float-native>>;
+       ([N1, N2, N3, N4, N5, N6, N7, N8]) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native,
+              N7:32/float-native, N8:32/float-native>>
+    end;
+convert(T) when T =:= linear3f ->
+    fun({N1, N2, N3, N4, N5, N6, N7, N8, N9}) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native,
+              N7:32/float-native, N8:32/float-native,
+              N9:32/float-native>>;
+       ([N1, N2, N3, N4, N5, N6, N7, N8, N9]) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native,
+              N7:32/float-native, N8:32/float-native,
+              N9:32/float-native>>
+    end;
+convert(T) when T =:= affine3f ->
+    fun({N1, N2, N3, N4, N5, N6, N7, N8, N9, NA, NB, NC}) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native,
+              N7:32/float-native, N8:32/float-native,
+              N9:32/float-native, NA:32/float-native,
+              NB:32/float-native, NC:32/float-native>>;
+       ([N1, N2, N3, N4, N5, N6, N7, N8, N9, NA, NB, NC]) ->
+            <<N1:32/float-native, N2:32/float-native,
+              N3:32/float-native, N4:32/float-native,
+              N5:32/float-native, N6:32/float-native,
+              N7:32/float-native, N8:32/float-native,
+              N9:32/float-native, NA:32/float-native,
+              NB:32/float-native, NC:32/float-native>>
+    end;
+convert(T) when T =:= double ->
+    fun(Num) -> <<Num:64/float-native>> end;
+convert(T) when T =:= vec2d ->
+    fun({N1, N2}) -> <<N1:64/float-native, N2:64/float-native>>;
+       ([N1, N2]) -> <<N1:64/float-native, N2:64/float-native>>
+    end;
+convert(T) when T =:= vec3d ->
+    fun({N1, N2, N3}) -> <<N1:64/float-native, N2:64/float-native, N3:64/float-native>>;
+       ([N1, N2, N3]) -> <<N1:64/float-native, N2:64/float-native, N3:64/float-native>>
+    end;
+convert(T) when T =:= vec4d ->
+    fun({N1, N2, N3, N4}) -> <<N1:64/float-native, N2:64/float-native, N3:64/float-native, N4:64/float-native>>;
+       ([N1, N2, N3, N4]) -> <<N1:64/float-native, N2:64/float-native, N3:64/float-native, N4:64/float-native>>
+    end.
+
+is_object(Type) ->
+    case Type of %% Assert the reference have an object data type
+        device -> true;
+        object -> true;
+        data -> true;
+        camera -> true;
+        framebuffer -> true;
+        future -> true;
+        geometric_model -> true;
+        geometry -> true;
+        group -> true;
+        image_operation -> true;
+        instance -> true;
+        light -> true;
+        material -> true;
+        renderer -> true;
+        texture -> true;
+        transfer_function -> true;
+        volume -> true;
+        volumetric_model -> true;
+        world -> true;
+        _ -> false
+    end.
 %% Nif init
 
 nif_stub_error(Line) ->
