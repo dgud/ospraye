@@ -16,7 +16,7 @@
          deviceRemoveParam/2,
          %% deviceRetain/1,
          deviceSetParam/4,
-         geometricModel/0, geometricModel/1,
+         newGeometricModel/0, newGeometricModel/1,
          getBounds/1,
          getCurrentDevice/0,
          getProgress/1,
@@ -24,7 +24,7 @@
          getVariance/1,
          isReady/1, isReady/2,
          loadModule/1,
-         mapFrameBuffer/1, mapFrameBuffer/2,
+         readFrameBuffer/4, readFrameBuffer/5,
          newCamera/1,
          newData/2, newData/3, newData/4,
          newDevice/0, newDevice/1,
@@ -51,7 +51,7 @@
          setParam/4,
          %% Shortcuts to setParam/4
          setString/3, setObject/3, setBool/3, setInt/3, setFloat/3,
-         shutdown/0,
+         %% shutdown/0,
          wait/1, wait/2
         ]).
 
@@ -100,8 +100,8 @@ deviceGetProperty(_Dev, _DeviceProperty) -> ?nif_stub.
 %% Shutdown the Ray engine...effectively deletes whatever device is currently
 %% set.
 
--spec shutdown() -> ok.
-shutdown() -> ?nif_stub.
+%% -spec shutdown() -> ok.
+%% shutdown() -> ?nif_stub.
 
 %% @doc
 %% Create an Ray engine backend using explicit device string.
@@ -248,14 +248,14 @@ newGeometry_nif(_Type) -> nif_stub.
 newVolume(Type) -> newVolume_nif(id_to_string(Type)).
 newVolume_nif(_Type) -> nif_stub.
 
--spec geometricModel() -> geometricModel().
-geometricModel() -> geometricModel(null).
--spec geometricModel(Geom::geometry()) -> geometricModel().
-geometricModel(_Geom) -> ?nif_stub.
+-spec newGeometricModel() -> geometricModel().
+newGeometricModel() -> newGeometricModel(null).
+-spec newGeometricModel(Geom::geometry() | null) -> geometricModel().
+newGeometricModel(_Geom) -> ?nif_stub.
 
 -spec newVolumetricModel() -> volumetricModel().
 newVolumetricModel() -> newVolumetricModel(null).
--spec newVolumetricModel(Volume::volume()) -> volumetricModel().
+-spec newVolumetricModel(Volume::volume() | null) -> volumetricModel().
 newVolumetricModel(_Volume) -> ?nif_stub.
 
 % Model Meta-Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -286,7 +286,7 @@ newInstance(_Group) -> ?nif_stub.
 newWorld() -> ?nif_stub.
 
 %% Return bounds if the object is able (World, Instance, and Group)
--spec getBounds(Object :: object()) ->  {float(), float(), float(), float(), float(), float()}.
+-spec getBounds(Object :: object()) ->  {{float(), float(), float()}, {float(), float(), float()}}.
 getBounds(_Object) -> ?nif_stub.
 
 %% Object + Parameter Lifetime Management %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/
@@ -346,15 +346,20 @@ newFrameBuffer(SizeX, SizeY, Format) ->
           frameBuffer().
 newFrameBuffer(_size_x, _size_y, _format, _frameBufferChannels) -> ?nif_stub.
 
-
 -spec newImageOperation(Type::osp_id()) ->  imageOperation().
 newImageOperation(_type) -> ?nif_stub.
 
-%% Pointer access (read-only) to the memory of the given frame buffer channel
--spec mapFrameBuffer(FB::frameBuffer()) ->  binary().
-mapFrameBuffer(FB) -> mapFrameBuffer(FB, fb_channel).
--spec mapFrameBuffer(FB::frameBuffer(), FBC::frameBufferChannel()) ->  binary().
-mapFrameBuffer(_FrameBuffer, _FrameBufferChannel) -> ?nif_stub.
+%% @doc
+%%   Returns the specified framebuffer content
+%%   SizeX, SizeY and Format must be the same as when created with newFramebuffer/3
+%%
+%%   Does ospMapFramebuffer(), copies data to binary and ospUnmapframebuffer().
+-spec readFrameBuffer(FB::frameBuffer(), SizeX::integer(), SizeY::integer(),
+                      Format::frameBufferFormat()) ->  binary().
+readFrameBuffer(FB,X,Y, Format) -> readFrameBuffer(FB, X,Y, Format, fb_color).
+-spec readFrameBuffer(FB::frameBuffer(), SizeX::integer(), SizeY::integer(),
+                      Format::frameBufferFormat(), FBC::frameBufferChannel()) ->  binary().
+readFrameBuffer(_FrameBuffer, _X, _Y, _Format, _FrameBufferChannel) -> ?nif_stub.
 
 %% Unmap a previously mapped frame buffer pointer
 %% -spec unmapFrameBuffer(const void *mapped, FrameBuffer) ->  void.
