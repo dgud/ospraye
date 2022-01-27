@@ -6,7 +6,8 @@
 %%
 %%   Todo:
 %%      Fix thread for wait (instead of stealing/blocking a dirty thread)
-%%      Helper functions init(map)?  pick?  setObjectAsData?
+%%      Helper functions: pick?  logging?
+%%      Better build (download and build, and fix windows)
 %%      Docs
 %%
 
@@ -28,6 +29,7 @@
          getProgress/1,
          getTaskDuration/1,
          getVariance/1,
+         init/0, init/1,
          isReady/1, isReady/2,
          loadModule/1,
          readFrameBuffer/4, readFrameBuffer/5,
@@ -56,7 +58,7 @@
          setCurrentDevice/1,
          setParam/4,
          %% Shortcuts to setParam/4
-         setString/3, setObject/3, setBool/3, setInt/3, setFloat/3,
+         setString/3, setObject/3, setBool/3, setInt/3, setFloat/3, setObjectAsData/4,
          %% shutdown/0,
          wait/1, wait/2
         ]).
@@ -66,7 +68,7 @@
 -include("osp_types.hrl").
 
 -define(nif_stub,nif_stub_error(?LINE)).
--on_load(init/0).
+-on_load(nif_init/0).
 
 -type managedObject() :: term().
 -type device() :: term().
@@ -98,6 +100,25 @@
 -type multiple_data() :: binary() | [managedObject()] | [number()] | [tuple()] | [[number()]].
 
 %% Device Initialization
+
+-spec init() -> device().
+init() ->
+    init([]).
+
+-type init_param() ::
+        {debug, boolean()} |
+        {logLevel, logLevel()} |
+        {warnAsError, boolean()} |
+        {logOutput, cerr | cout} |
+        {errorOutput, cerr | cout} |
+        {device, string()} |
+        {loadModules, [string()]} |
+        {numThreads, non_neg_integer()} |
+        {setAffinity, boolean()}.
+
+-spec init([init_param()]) -> device().
+init(Params) ->
+    init_impl(Params).
 
 %% returns the OSPRay Version in use by the device
 -spec deviceGetProperty(Dev::device(), deviceProperty()) -> integer().
@@ -316,6 +337,10 @@ setInt(Obj, Id, Num) ->
 -spec setFloat(Object::object(), Id::osp_id(), Num::float()) ->  ok.
 setFloat(Obj, Id, Num) ->
     setParam_nif(Obj, id_to_string(Id), float, single_data(float, Num)).
+
+-spec setObjectAsData(Object::object(), Id::osp_id(), Type::dataType(), Other::object()) ->  ok.
+setObjectAsData(Obj, Id, Type, Other) ->
+    setParam(Obj, Id, Type, osp:newCopiedData([Other], Type, 1)).
 
 -spec setParam(Object::object(), Id::osp_id(), Type :: dataType(), Mem :: param_data()) ->  ok.
 setParam(Device, Id, Type, Mem) ->
@@ -711,12 +736,51 @@ is_object(Type) ->
         world -> true;
         _ -> false
     end.
+
+init_impl(Options) ->
+    Mods0 = case os:getenv("OSPRAY_LOAD_MODULES") of
+                false -> [];
+                ModStr -> string:lexemes(ModStr, ",")
+            end,
+    Mods = Mods0 ++ proplists:get_value(loadModules, Options, []),
+    [no_error = loadModule(Mod) || Mod <- Mods],
+    Dev = case proplists:get_value(device, Options, "default") of
+              "default" ->
+                  no_error = loadModule("ispc"),
+                  newDevice("cpu");
+              DevStr ->
+                  newDevice(DevStr)
+          end,
+    [set_init_param(Dev, Param, proplists:get_value(Param, Options, false)) ||
+        Param <- [numThreads, setAffinity, logLevel, logOutput, errorOutput, debug, warnAsError]],
+    deviceCommit(Dev),
+    case deviceGetLastErrorCode(Dev) of
+        no_error -> Dev;
+        _ -> error({error, deviceGetLastErrorMsg(Dev)})
+    end.
+
+set_init_param(_, _, false) -> ok;
+set_init_param(Dev, logLevel=Id, Int) when is_integer(Int) ->
+    deviceSetParam(Dev, Id, int, Int);
+set_init_param(Dev, logOutput=Id, Atom) when Atom =:= cerr; Atom =:= cout ->
+    deviceSetParam(Dev, Id, string, Atom);
+set_init_param(Dev, errorOutput=Id, Atom) when Atom =:= cerr; Atom =:= cout ->
+    deviceSetParam(Dev, Id, string, Atom);
+set_init_param(Dev, debug=Id, Bool) when is_boolean(Bool) ->
+    deviceSetParam(Dev, Id, bool, Bool);
+set_init_param(Dev, setAffinity=Id, Bool) when is_boolean(Bool) ->
+    deviceSetParam(Dev, Id, bool, Bool);
+set_init_param(Dev, numThreads=Id, Int) when is_integer(Int) ->
+    deviceSetParam(Dev, Id, int, Int);
+set_init_param(_, Id, _) ->
+    error({unknown_param, Id}).
+
 %% Nif init
 
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
-init() ->
+nif_init() ->
     Name = "libosp",
     Dir = case code:priv_dir(ospraye) of
               {error, _} ->

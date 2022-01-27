@@ -22,14 +22,20 @@ colors_1() ->
 index_1() ->
     [0, 1, 2, 1, 2, 3].
 
-tutorial(_Config) ->
-    no_error = osp:loadModule("ispc"),
-    Dev = osp:newDevice(cpu),
-    osp:deviceSetParam(Dev, "setAffinity", bool, false),
-    osp:deviceSetParam(Dev, numThreads, int, 16),
-    %% osp:deviceSetParam(Dev, debug, bool, true),
-    ok = osp:deviceCommit(Dev),
-    ok = osp:setCurrentDevice(Dev),
+tutorial(Config) ->
+    Dev = case lists:member(manual_config, Config) of
+              true ->
+                  no_error = osp:loadModule("ispc"),
+                  Dev0 = osp:newDevice(cpu),
+                  osp:deviceSetParam(Dev0, "setAffinity", bool, false),
+                  osp:deviceSetParam(Dev0, numThreads, int, 16),
+                  %% osp:deviceSetParam(Dev0, debug, bool, true),
+                  ok = osp:deviceCommit(Dev0),
+                  ok = osp:setCurrentDevice(Dev0),
+                  Dev0;
+              false ->
+                  osp:init()
+          end,
     no_error = osp:deviceGetLastErrorCode(Dev),
 
     Cam_pos  = {0.0, 0, 0},
@@ -143,6 +149,7 @@ tutorial(_Config) ->
     io:format("cleaning up objects..."),
     io:format("done\n"),
 
+    timer:sleep(5000),
     %% osp:Shutdown(),
     ok.
 
