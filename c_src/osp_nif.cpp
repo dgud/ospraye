@@ -198,7 +198,7 @@ ERL_NIF_TERM osp_deviceCommit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 {
     osp_mem_t *mem;
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
     ospDeviceCommit((OSPDevice) mem->obj);
     return atom_ok;
 }
@@ -208,7 +208,7 @@ ERL_NIF_TERM osp_deviceGetLastErrorCode(ErlNifEnv* env, int argc, const ERL_NIF_
     osp_mem_t *mem;
     ERL_NIF_TERM atom;
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
     OSPError error = ospDeviceGetLastErrorCode((OSPDevice) mem->obj);
 
     if(!osp_enum_to_atom(osp_error_code, error, &atom)) make_error(atom_error, "atom_not_found");
@@ -219,7 +219,7 @@ ERL_NIF_TERM osp_deviceGetLastErrorMsg(ErlNifEnv* env, int argc, const ERL_NIF_T
 {
     osp_mem_t *mem;
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
     const char *error = ospDeviceGetLastErrorMsg((OSPDevice) mem->obj);
     return enif_make_string(env, error, ERL_NIF_LATIN1);
 }
@@ -229,7 +229,7 @@ ERL_NIF_TERM osp_deviceGetProperty(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     osp_mem_t *mem;
     int enum_v;
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
     if(!enif_is_atom(env, argv[1])) make_error(atom_badarg, "DeviceProperty");
     if(!osp_atom_to_enum(osp_deviceProperty, argv[1], &enum_v)) make_error(atom_badarg, "DeviceProperty");
     ErlNifSInt64 res = ospDeviceGetProperty((OSPDevice) mem->obj, (OSPDeviceProperty) enum_v);
@@ -245,7 +245,7 @@ ERL_NIF_TERM osp_deviceRemoveParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 {
     osp_mem_t *mem;
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
 
     ErlNifBinary id;
     if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
@@ -264,9 +264,10 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     int type_v;
     void * data_ptr;
     ErlNifBinary binary;
+    osp_mem_t *obj;
 
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
 
     ErlNifBinary id;
     if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
@@ -278,8 +279,7 @@ ERL_NIF_TERM osp_deviceSetParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         if(!enif_inspect_binary(env, argv[3], &binary)) make_error(atom_badarg, "Data");
         data_ptr = binary.data;
     } else {
-        osp_mem_t *obj;
-        if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
+        if(!enif_get_resource(env, argv[3], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
         data_ptr = &obj->obj;
     }
     ospDeviceSetParam((OSPDevice) mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
@@ -383,7 +383,7 @@ ERL_NIF_TERM osp_loadModule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM osp_readFrameBuffer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int x,y;
-    int format, temp;
+    int format;
     int channel;
     unsigned char *src, *dest;
     ERL_NIF_TERM bin;
@@ -711,7 +711,7 @@ ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 {
     osp_mem_t *mem;
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Device");
-    if(!mem->type == ospt_device) make_error(atom_badarg, "not a device");
+    if(mem->type != ospt_device) make_error(atom_badarg, "not a device");
     ospSetCurrentDevice((OSPDevice) mem->obj);
     return atom_ok;
 }
@@ -719,15 +719,15 @@ ERL_NIF_TERM osp_setCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 // Set a parameter, where 'mem' points the address of the type specified
 ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    osp_mem_t *mem;
+    osp_mem_t *mem, *obj;
+
     int type_v;
     void * data_ptr;
-    ErlNifBinary binary;
+    ErlNifBinary binary, id;
 
     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Object");
     if(mem->type == ospt_device) make_error(atom_badarg, "is a device");
 
-    ErlNifBinary id;
     if(!enif_inspect_binary(env, argv[1], &id)) make_error(atom_badarg, "Id");
 
     if(!enif_is_atom(env, argv[2])) make_error(atom_badarg, "Type");
@@ -737,8 +737,7 @@ ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         if(!enif_inspect_binary(env, argv[3], &binary)) make_error(atom_badarg, "Data");
         data_ptr = binary.data;
     } else {
-        osp_mem_t *obj;
-        if(!enif_get_resource(env, argv[0], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
+        if(!enif_get_resource(env, argv[3], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
         data_ptr = &obj->obj;
     }
     ospSetParam(mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
@@ -830,7 +829,7 @@ static ErlNifFunc nif_funcs[] =
    {"newInstance", 1, osp_newInstance, 0},
    {"newLight_nif", 1, osp_newLight, 0},
    {"newMaterial_nif", 1, osp_newMaterial, 0},
-   {"newRenderer", 1, osp_newRenderer, 0},
+   {"newRenderer_nif", 1, osp_newRenderer, 0},
    {"newCopiedData_nif", 8, osp_newCopiedData, 0},
    {"newTexture_nif", 1, osp_newTexture, 0},
    {"newTransferFunction_nif", 1, osp_newTransferFunction, 0},

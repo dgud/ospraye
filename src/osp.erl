@@ -3,6 +3,12 @@
 %%
 %%   Copyright Dan Gudmundsson
 %%
+%%
+%%   Todo:
+%%      Fix thread for wait (instead of stealing/blocking a dirty thread)
+%%      Helper functions init(map)?  pick?  setObjectAsData?
+%%      Docs
+%%
 
 -module(osp).
 -export([cancel/1,
@@ -347,7 +353,8 @@ newFrameBuffer(SizeX, SizeY, Format) ->
 newFrameBuffer(_size_x, _size_y, _format, _frameBufferChannels) -> ?nif_stub.
 
 -spec newImageOperation(Type::osp_id()) ->  imageOperation().
-newImageOperation(_type) -> ?nif_stub.
+newImageOperation(Type) -> newImageOperation_nif(id_to_string(Type)).
+newImageOperation_nif(_type) -> ?nif_stub.
 
 %% @doc
 %%   Returns the specified framebuffer content
@@ -376,7 +383,8 @@ resetAccumulation(_FrameBuffer) -> ?nif_stub.
 %% Frame Rendering %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec newRenderer(Type::osp_id()) ->  renderer().
-newRenderer(_type) -> ?nif_stub.
+newRenderer(Type) -> newRenderer_nif(id_to_string(Type)).
+newRenderer_nif(_type) -> ?nif_stub.
 
 %% Render a frame (non-blocking), return a future to the task executed by Ray
 -spec renderFrame(frameBuffer(), renderer(), camera(), world()) -> future().

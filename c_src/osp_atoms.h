@@ -11,7 +11,7 @@
 
 typedef struct {
     const char * name;
-    uint   value;
+    unsigned int   value;
     ERL_NIF_TERM atom;
 } osp_atom_t;
 
