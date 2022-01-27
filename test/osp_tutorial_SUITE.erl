@@ -32,7 +32,6 @@ tutorial(_Config) ->
     ok = osp:setCurrentDevice(Dev),
     no_error = osp:deviceGetLastErrorCode(Dev),
 
-    io:format("~p:~p:~n",[?MODULE, ?LINE]),
     Cam_pos  = {0.0, 0, 0},
     Cam_up   = {0.0, 1, 0},
     Cam_view = {0.1, 0, 1},
@@ -61,25 +60,20 @@ tutorial(_Config) ->
     Mat = osp:newMaterial("obj"),
     osp:commit(Mat),
 
-    io:format("~p:~p:~n",[?MODULE, ?LINE]),
     %% put the mesh into a model
     Model = osp:newGeometricModel(Mesh),
     osp:setObject(Model, "material", Mat),
     osp:commit(Model),
-    io:format("~p:~p:~n",[?MODULE, ?LINE]),
 
     %% put the model into a group (collection of models)
     Group = osp:newGroup(),
     %% osp:setObjectAsData(group, "geometry", OSP_GEOMETRIC_MODEL, model),
-    io:format("~p:~p:~n",[?MODULE, ?LINE]),
     ModelList = osp:newCopiedData([Model], geometric_model, 1),
     osp:setParam(Group, "geometry", geometric_model, ModelList),
-    io:format("~p:~p:~n",[?MODULE, ?LINE]),
 
     %%osp:setParam(Group, "geometry", geometric_model, osp:newCopiedData([Model], model, 1)),
     osp:commit(Group),
 
-    io:format("~p:~p:~n",[?MODULE, ?LINE]),
     %% put the group into an instance (give the group a world transform)
     Instance = osp:newInstance(Group),
     osp:commit(Instance),
@@ -89,7 +83,6 @@ tutorial(_Config) ->
     %% osp:SetObjectAsData(world, "instance", OSP_INSTANCE, instance),
     osp:setParam(World, "instance", instance, osp:newCopiedData([Instance], instance, 1)),
 
-    io:format("~p:~p: ~p~n",[?MODULE, ?LINE, osp:deviceGetLastErrorMsg(Dev)]),
     %% create and setup light for Ambient Occlusion
     Light = osp:newLight("ambient"),
     osp:commit(Light),
@@ -103,20 +96,17 @@ tutorial(_Config) ->
     %% create renderer
     Renderer = osp:newRenderer("pathtracer"), %% choose path tracing renderer
     %% complete setup of renderer
-    osp:setFloat(Renderer, "backgroundColor", 1.0), %% white, transparent
+    osp:setParam(Renderer, "backgroundColor", vec4f, {0,0,0,1.0}),
     osp:commit(Renderer),
 
     %% create and setup framebuffer
     Framebuffer = osp:newFrameBuffer(W,H, fb_srgba, [fb_color, fb_accum]),
     osp:resetAccumulation(Framebuffer),
 
-    io:format("~p:~p: ~p~n",[?MODULE, ?LINE, osp:deviceGetLastErrorMsg(Dev)]),
     io:format("rendering initial frame to firstFrame.ppm..."),
     %% render one frame
     Future1 = osp:renderFrame(Framebuffer, Renderer, Camera, World),
-    io:format("~p:~p: ~p~n",[?MODULE, ?LINE, osp:deviceGetLastErrorMsg(Dev)]),
     osp:wait(Future1),
-    io:format("~p:~p: ~p~n",[?MODULE, ?LINE, osp:deviceGetLastErrorMsg(Dev)]),
 
     %% access framebuffer and write its content as PPM file
     FirstImage = osp:readFrameBuffer(Framebuffer, W,H, fb_srgba, fb_color),

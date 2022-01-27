@@ -594,6 +594,7 @@ ERL_NIF_TERM osp_newCopiedData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                                     NumItems3, ByteStride3);
     if(!temp) make_error(atom_error, "invalid data");
     // Copy data, so it can be gc'ed/deleted in erlang
+    // enif_fprintf(stderr, "%d: '%d' %T %d\r\n", __LINE__, NumItems1, argv[1], Type);
     OSPData obj = ospNewData((OSPDataType) Type, NumItems1, NumItems2, NumItems3);
     ospCopyData(temp, obj, 0, 0, 0);
     ospRelease(temp);
@@ -686,8 +687,10 @@ ERL_NIF_TERM osp_renderFrame(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         make_error(atom_badarg, "World");
     if(world->type != ospt_world) make_error(atom_badarg, "World");
 
-    OSPFuture future = ospRenderFrame((OSPFrameBuffer) frameb, (OSPRenderer) renderer,
-                                      (OSPCamera) camera, (OSPWorld) world);
+    OSPFuture future = ospRenderFrame((OSPFrameBuffer) frameb->obj,
+                                      (OSPRenderer) renderer->obj,
+                                      (OSPCamera) camera->obj,
+                                      (OSPWorld) world->obj);
     if(!future) make_error(atom_error, "could not create renderer");
     return osp_make_object(env, (OSPObject) future, ospt_future);
 }
@@ -740,9 +743,9 @@ ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         if(!enif_get_resource(env, argv[3], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
         data_ptr = &obj->obj;
     }
+    // enif_fprintf(stderr, "%d: '%s' %T %d\r\n", __LINE__, (const char*) id.data, argv[2], type_v);
     ospSetParam(mem->obj,  (const char*) id.data, (OSPDataType) type_v, data_ptr);
     return atom_ok;
-
 }
 
 // ERL_NIF_TERM osp_shutdown(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
