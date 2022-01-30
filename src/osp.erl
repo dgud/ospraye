@@ -754,6 +754,7 @@ init_impl(Options) ->
     [set_init_param(Dev, Param, proplists:get_value(Param, Options, false)) ||
         Param <- [numThreads, setAffinity, logLevel, logOutput, errorOutput, debug, warnAsError]],
     deviceCommit(Dev),
+    setCurrentDevice(Dev),
     case deviceGetLastErrorCode(Dev) of
         no_error -> Dev;
         _ -> error({error, deviceGetLastErrorMsg(Dev)})
