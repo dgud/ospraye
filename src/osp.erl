@@ -27,7 +27,7 @@
          getBounds/1,
          getCurrentDevice/0,
          getProgress/1,
-         getTaskDuration/1,
+         %% getTaskDuration/1,
          getVariance/1,
          init/0, init/1,
          isReady/1, isReady/2,
@@ -59,6 +59,7 @@
          setParam/4,
          %% Shortcuts to setParam/4
          setString/3, setObject/3, setBool/3, setInt/3, setFloat/3, setObjectAsData/4,
+         subscribe/1, subscribe/2,
          %% shutdown/0,
          wait/1, wait/2
         ]).
@@ -425,7 +426,10 @@ isReady(_Future, _SyncEvent) -> ?nif_stub.
 -spec wait(future()) -> ok.
 wait(Future) -> wait(Future, task_finished).
 -spec wait(future(), syncEvent()) -> ok.
-wait(_Future, _SyncEvent) -> ?nif_stub.
+wait(Future, Event) ->
+    wait_nif(Future, Event).
+
+wait_nif(_Future, _SyncEvent) -> ?nif_stub.
 
 %% Cancel the given task (may block calling thread)
 -spec cancel(future()) -> ok.
@@ -435,10 +439,31 @@ cancel(_Future) -> ?nif_stub.
 -spec getProgress(future()) ->  float().
 getProgress(_Future) -> ?nif_stub.
 
-%% Get the execution duration (in seconds) state of the given task
--spec getTaskDuration(future()) ->  float().
-getTaskDuration(_Future) ->
-    ?nif_stub.
+%% subscribe(Future, Event) -> ok
+%% Send msg caller when Event have happend
+subscribe(Future) ->
+    subscribe(Future, task_finished).
+
+subscribe(Future, Event) ->
+    Me = self(),
+    Wait = fun() ->
+                   Me ! {self(), go},
+                   wait_nif(Future, Event),
+                   Me ! {?MODULE, Future, Event}
+           end,
+    Pid = spawn_link(Wait),
+    receive
+        {'EXIT', Pid, Error} -> error(Error);
+        {Pid, go} ->
+            receive {'EXIT', Pid, Error1} -> error(Error1)
+            after 0 -> ok
+            end
+    end.
+
+%% %% Get the execution duration (in seconds) state of the given task
+%% -spec getTaskDuration(future()) ->  float().
+%% getTaskDuration(_Future) ->
+%%     ?nif_stub.
 
 %% Helpers
 %% Strings need a closing end of string
@@ -452,11 +477,22 @@ single_data(string, Data) ->
 single_data(_, Data) when is_binary(Data) ->
     Data;
 single_data(Type, Data) when is_reference(Data) ->
-    true = is_object(Type),
+    true =:= is_object(Type) orelse error({badarg, Type, Data}),
     Data;
+single_data(bool, Data) ->
+    Fun = convert(bool),
+    try Fun(Data)
+    catch _:_ -> error({badarg, bool, Data})
+    end;
+single_data(Type, EnumAtom) when is_atom(EnumAtom) ->
+    (Type =:= int orelse Type =:= uint) orelse error({badarg, Type, EnumAtom}),
+    %% Let driver deal with this
+    EnumAtom;
 single_data(Type, Data) ->
     Fun = convert(Type),
-    Fun(Data).
+    try Fun(Data)
+    catch _:_ -> error({badarg, Type, Data})
+    end.
 
 multiple_data(_Type, Data) when is_binary(Data) ->
     Data;
@@ -465,13 +501,17 @@ multiple_data(Type, [Entry|_] = Data) when is_reference(Entry) ->
     Data;
 multiple_data(Type, [Entry|_] = Data) when is_list(Entry); is_tuple(Entry) ->
     Fun = convert(Type),
-    << <<(Fun(E))/binary>> || E <- Data >>;
+    try << <<(Fun(E))/binary>> || E <- Data >>
+    catch _:_ -> error({badarg, Type, Data})
+    end;
 multiple_data(Type, Data) when is_list(Data) ->
     {Sz, FlatType} = flat_type(Type),
     Fun = convert(FlatType),
-    Bin = << <<(Fun(E))/binary>> || E <- Data >>,
-    0 = byte_size(Bin) rem Sz,  %% Assert
-    Bin.
+    try  Bin = << <<(Fun(E))/binary>> || E <- Data >>,
+         0 = byte_size(Bin) rem Sz,  %% Assert
+         Bin
+    catch _:_ -> error({badarg, Type, Data})
+    end.
 
 flat_type(T) when T =:= vec2c; T =:= vec2uc ->
     {2, char};
@@ -711,7 +751,9 @@ convert(T) when T =:= vec3d ->
 convert(T) when T =:= vec4d ->
     fun({N1, N2, N3, N4}) -> <<N1:64/float-native, N2:64/float-native, N3:64/float-native, N4:64/float-native>>;
        ([N1, N2, N3, N4]) -> <<N1:64/float-native, N2:64/float-native, N3:64/float-native, N4:64/float-native>>
-    end.
+    end;
+convert(Type) ->
+    error({unknown_conversion, Type}).
 
 is_object(Type) ->
     case Type of %% Assert the reference have an object data type
@@ -782,7 +824,10 @@ nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
 nif_init() ->
-    Name = "libosp",
+    Name = case os:type() of
+               {win32, _} -> "osp";
+               _ -> "libosp"
+           end,
     Dir = case code:priv_dir(ospraye) of
               {error, _} ->
                   MPath = code:which(?MODULE),
@@ -791,4 +836,5 @@ nif_init() ->
               Priv -> Priv
           end,
     Nif = filename:join(Dir, Name),
+    %% io:format("Loading ~p exists ~p ~n",[Nif, filelib:is_file(Nif ++ ".dll")]),
     erlang:load_nif(Nif, 0).

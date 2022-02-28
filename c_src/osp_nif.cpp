@@ -19,19 +19,6 @@
 #include <vector>
 #include "ospray/ospray.h"
 
-typedef enum {
-              ospt_managedObject, ospt_camera, ospt_data,
-              ospt_frameBuffer, ospt_future, ospt_geometricModel, ospt_geometry, ospt_group,
-              ospt_imageOperation, ospt_instance, ospt_light, ospt_material, ospt_object,
-              ospt_renderer, ospt_texture, ospt_transferFunction, ospt_volume,
-              ospt_volumetricModel, ospt_world, ospt_device
-} osp_object_t;
-
-typedef struct {
-    osp_object_t type;
-    OSPObject obj;
-} osp_mem_t;
-
 extern "C" {
 #include "erl_nif.h"
 
@@ -59,7 +46,7 @@ extern "C" {
     ERL_NIF_TERM osp_getBounds(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_getCurrentDevice(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_getProgress(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-    ERL_NIF_TERM osp_getTaskDuration(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    // ERL_NIF_TERM osp_getTaskDuration(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_getVariance(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_isReady(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     ERL_NIF_TERM osp_loadModule(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -92,6 +79,20 @@ extern "C" {
     ERL_NIF_TERM osp_wait(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 }  // extern c
+
+typedef enum {
+              ospt_managedObject, ospt_camera, ospt_data,
+              ospt_frameBuffer, ospt_future, ospt_geometricModel, ospt_geometry, ospt_group,
+              ospt_imageOperation, ospt_instance, ospt_light, ospt_material, ospt_object,
+              ospt_renderer, ospt_texture, ospt_transferFunction, ospt_volume,
+              ospt_volumetricModel, ospt_world, ospt_device
+} osp_object_t;
+
+typedef struct {
+    osp_object_t type;
+    OSPObject obj;
+    ErlNifPid pid;
+} osp_mem_t;
 
 #include "osp_atoms.h"
 
@@ -134,6 +135,30 @@ static int osp_atom_to_enum(osp_atom_t *entry, ERL_NIF_TERM value, int *res)
     return 0;
 }
 
+static int osp_atom_to_enum_all(ERL_NIF_TERM value, int *res) {
+    if(osp_atom_to_enum(osp_logLevel, value, res)) return 1;
+    if(osp_atom_to_enum(osp_deviceProperty, value, res)) return 1;
+    if(osp_atom_to_enum(osp_dataType, value, res)) return 1;
+    if(osp_atom_to_enum(osp_dataType, value, res)) return 1;
+    if(osp_atom_to_enum(osp_dataType, value, res)) return 1;
+    if(osp_atom_to_enum(osp_textureFormat, value, res)) return 1;
+    if(osp_atom_to_enum(osp_texturefilter, value, res)) return 1;
+    if(osp_atom_to_enum(osp_error_code, value, res)) return 1;
+    if(osp_atom_to_enum(osp_frameBufferFormat, value, res)) return 1;
+    if(osp_atom_to_enum(osp_frameBufferChannel, value, res)) return 1;
+    if(osp_atom_to_enum(osp_syncEvent, value, res)) return 1;
+    if(osp_atom_to_enum(osp_unstructuredCellType, value, res)) return 1;
+    if(osp_atom_to_enum(osp_stereoMode, value, res)) return 1;
+    if(osp_atom_to_enum(osp_shutterType, value, res)) return 1;
+    if(osp_atom_to_enum(osp_curveType, value, res)) return 1;
+    if(osp_atom_to_enum(osp_curveBasis, value, res)) return 1;
+    if(osp_atom_to_enum(osp_subdivisionMode, value, res)) return 1;
+    if(osp_atom_to_enum(osp_amrMethod, value, res)) return 1;
+    if(osp_atom_to_enum(osp_volumeFilter, value, res)) return 1;
+    if(osp_atom_to_enum(osp_pixelFilterTypes, value, res)) return 1;
+    if(osp_atom_to_enum(osp_intensityQuantity, value, res)) return 1;
+    return 0;
+}
 
 ERL_NIF_TERM osp_make_object(ErlNifEnv* env, OSPObject obj, osp_object_t type)
 {
@@ -141,6 +166,7 @@ ERL_NIF_TERM osp_make_object(ErlNifEnv* env, OSPObject obj, osp_object_t type)
     osp_mem_t *mem = (osp_mem_t *) enif_alloc_resource(osp_resource, sizeof(osp_mem_t));
     mem->obj = obj;
     mem->type = type;
+    enif_self(env, &mem->pid);
     term = enif_make_resource(env, mem);
     enif_release_resource(mem);
     return term;
@@ -337,14 +363,14 @@ ERL_NIF_TERM osp_getProgress(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_double(env, (double) res);
 }
 
-ERL_NIF_TERM osp_getTaskDuration(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    osp_mem_t *mem;
-    if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Future");
-    if(mem->type != ospt_future) make_error(atom_badarg, "Object is not a future");
-    float res = ospGetTaskDuration((OSPFuture) mem->obj);
-    return enif_make_double(env, (double) res);
-}
+// ERL_NIF_TERM osp_getTaskDuration(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// {
+//     osp_mem_t *mem;
+//     if(!enif_get_resource(env, argv[0], osp_resource, (void **) &mem)) make_error(atom_badarg, "Future");
+//     if(mem->type != ospt_future) make_error(atom_badarg, "Object is not a future");
+//     float res = ospGetTaskDuration((OSPFuture) mem->obj);
+//     return enif_make_double(env, (double) res);
+// }
 
 ERL_NIF_TERM osp_getVariance(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -453,9 +479,9 @@ ERL_NIF_TERM osp_newData(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifUInt64 NumItems1, NumItems2, NumItems3;
 
     if(!osp_atom_to_enum(osp_dataType, argv[0], &Type)) make_error(atom_badarg, "Type");
-    if(!enif_get_uint64(env, argv[2], &NumItems1)) make_error(atom_badarg, "NumItems1");
-    if(!enif_get_uint64(env, argv[4], &NumItems2)) make_error(atom_badarg, "NumItems2");
-    if(!enif_get_uint64(env, argv[6], &NumItems3)) make_error(atom_badarg, "NumItems3");
+    if(!enif_get_uint64(env, argv[1], &NumItems1)) make_error(atom_badarg, "NumItems1");
+    if(!enif_get_uint64(env, argv[2], &NumItems2)) make_error(atom_badarg, "NumItems2");
+    if(!enif_get_uint64(env, argv[3], &NumItems3)) make_error(atom_badarg, "NumItems3");
 
     OSPData data = ospNewData((OSPDataType) Type, NumItems1, NumItems2, NumItems3);
     if(!data) make_error(atom_error, "invalid data");
@@ -724,7 +750,7 @@ ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     osp_mem_t *mem, *obj;
 
-    int type_v;
+    int type_v, enum_val;
     void * data_ptr;
     ErlNifBinary binary, id;
 
@@ -739,6 +765,9 @@ ERL_NIF_TERM osp_setParam(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if(enif_is_binary(env, argv[3])) {
         if(!enif_inspect_binary(env, argv[3], &binary)) make_error(atom_badarg, "Data");
         data_ptr = binary.data;
+    } else if(enif_is_atom(env, argv[3])) {
+        if(!osp_atom_to_enum_all(argv[3], &enum_val)) make_error(atom_badarg, "Data");
+        data_ptr = &enum_val;
     } else {
         if(!enif_get_resource(env, argv[3], osp_resource, (void **) &obj)) make_error(atom_badarg, "Data");
         data_ptr = &obj->obj;
@@ -800,6 +829,17 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     return 0;
 }
 
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
+		   ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+// static void unload(ErlNifEnv* env, void* priv_data)
+// {
+//     // ospShutdown();
+// }
+
 static ErlNifFunc nif_funcs[] =
   {
    {"cancel", 1, osp_cancel, 0},
@@ -817,7 +857,7 @@ static ErlNifFunc nif_funcs[] =
    {"getBounds", 1, osp_getBounds, 0},
    {"getCurrentDevice", 0, osp_getCurrentDevice, 0},
    {"getProgress", 1, osp_getProgress, 0},
-   {"getTaskDuration", 1, osp_getTaskDuration, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+   // {"getTaskDuration", 1, osp_getTaskDuration, ERL_NIF_DIRTY_JOB_CPU_BOUND},
    {"getVariance", 1, osp_getVariance, 0},
    {"isReady", 2, osp_isReady, 0},
    {"loadModule_nif", 1, osp_loadModule, 0},
@@ -847,8 +887,8 @@ static ErlNifFunc nif_funcs[] =
    {"setCurrentDevice", 1, osp_setCurrentDevice, 0},
    {"setParam_nif", 4, osp_setParam, 0},
    // {"shutdown", 0, osp_shutdown, 0},
-   {"wait", 2, osp_wait, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+   {"wait_nif", 2, osp_wait, ERL_NIF_DIRTY_JOB_CPU_BOUND},
   };
-    ERL_NIF_INIT(osp,nif_funcs,load,NULL,NULL,NULL)
+    ERL_NIF_INIT(osp,nif_funcs,load,NULL,upgrade,NULL)
 
 }  // extern c

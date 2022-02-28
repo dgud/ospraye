@@ -16,11 +16,32 @@ all() ->
     ].
 
 vertex_pos_1() ->
-    [-1.0, -1.0, 3.0, -1.0, 1.0, 3.0, 1.0, -1.0, 3.0, 0.1, 0.1, 0.3].
+    [-1.0,-1.0,3.0, -1.0,1.0,3.0,
+      1.0,-1.0,3.0,  1.0,1.0,2.0].
+uv_1() ->
+    [{0.0,0.0},  {0.0,0.95},
+     {0.95,0.0}, {0.95,0.95}].
 colors_1() ->
-    [0.9, 0.5, 0.5, 1.0, 0.8, 0.8, 0.8, 1.0, 0.8, 0.8, 0.8, 1.0, 0.5, 0.9, 0.5, 1.0].
+    [0.9,0.5,0.5,1.0,   0.5,0.5,0.9,1.0,
+     0.0,0.0,0.0,1.0,   0.5,0.9,0.5,1.0].
+
 index_1() ->
-    [0, 1, 2, 1, 2, 3].
+    [0,2,1, 1,2,3].
+
+image_1() ->
+    R = {255,0,0}, B={0,0,255},
+    [R,R,R,R,
+     R,R,R,R,
+     B,B,B,B,
+     B,B,B,B].
+
+-define(check_error(Dev),
+        fun() ->
+                case osp:deviceGetLastErrorCode(Dev) of
+                    no_error -> ok;
+                    _ -> io:format("~p:~p: ~p~n",[?MODULE, ?LINE, osp:deviceGetLastErrorMsg(Dev)])
+                end
+        end()).
 
 tutorial(Config) ->
     Dev = case lists:member(manual_config, Config) of
@@ -29,14 +50,14 @@ tutorial(Config) ->
                   Dev0 = osp:newDevice(cpu),
                   osp:deviceSetParam(Dev0, "setAffinity", bool, false),
                   osp:deviceSetParam(Dev0, numThreads, int, 16),
-                  %% osp:deviceSetParam(Dev0, debug, bool, true),
                   ok = osp:deviceCommit(Dev0),
                   ok = osp:setCurrentDevice(Dev0),
                   Dev0;
               false ->
                   osp:init()
           end,
-    no_error = osp:deviceGetLastErrorCode(Dev),
+    ?check_error(Dev),
+    %% osp:deviceSetParam(Dev, debug, bool, true), osp:deviceCommit(Dev),
 
     Cam_pos  = {0.0, 0, 0},
     Cam_up   = {0.0, 1, 0},
@@ -50,26 +71,57 @@ tutorial(Config) ->
     osp:setParam(Camera, "up", vec3f, Cam_up),
     osp:commit(Camera), %%  commit each object to indicate modifications are done
 
-    io:format("~p:~p: ~p~n",[?MODULE, ?LINE, osp:deviceGetLastErrorMsg(Dev)]),
+    ?check_error(Dev),
     Mesh = osp:newGeometry("mesh"),
-    Data0 = osp:newCopiedData(vertex_pos_1(), vec3f, 4),
-    osp:commit(Data0),
-    osp:setObject(Mesh, "vertex.position", Data0),
-    Data1 = osp:newCopiedData(colors_1(), vec4f, 4),
-    osp:commit(Data1),
-    osp:setObject(Mesh, "vertex.color", Data1),
-    Data2 = osp:newCopiedData(index_1(), vec3ui, 2),
-    osp:commit(Data2),
-    osp:setObject(Mesh, "index", Data2),
-    osp:commit(Mesh),
+    VsData = osp:newCopiedData(vertex_pos_1(), vec3f, 4),
+    osp:commit(VsData),
+    osp:setObject(Mesh, "vertex.position", VsData),
+    case proplists:get_value(use_colors, Config, false) of
+        true ->
+            io:format("Use vertex colors~n",[]),
+            Data1 = osp:newCopiedData(colors_1(), vec4f, 4),
+            osp:commit(Data1),
+            osp:setObject(Mesh, "vertex.color", Data1);
+        false ->
+            io:format("Use uv coords~n",[]),
+            UvData = osp:newCopiedData(uv_1(), vec2f, 4),
+            osp:commit(UvData),
+            osp:setObject(Mesh, "vertex.texcoord", UvData)
+    end,
+    ?check_error(Dev),
 
-    Mat = osp:newMaterial("obj"),
+    IxData = osp:newCopiedData(index_1(), vec3ui, 2),
+    osp:commit(IxData),
+    osp:setObject(Mesh, "index", IxData),
+    osp:commit(Mesh),
+    ?check_error(Dev),
+
+    TxData = osp:newCopiedData(image_1(), vec3uc, 4, 0, 4),
+    osp:commit(TxData),
+    Texture = osp:newTexture("texture2d"),
+    osp:setParam(Texture, "format", int, texture_rgb8),
+    osp:setObject(Texture, "data", TxData),
+    osp:commit(Texture),
+    ?check_error(Dev),
+
+    Mat = osp:newMaterial("principled"),
+    %% osp:setParam(Mat, "map_kd", texture, Texture),
+    case proplists:get_value(use_colors, Config, false) of
+        false ->
+            osp:setParam(Mat, "map_baseColor", texture, Texture);
+        true ->
+            io:format("Using vertex colors, ignoring textures~n",[]),
+            osp:removeParam(Mat, "map_baseColor"),
+            ignore
+    end,
     osp:commit(Mat),
+    ?check_error(Dev),
 
     %% put the mesh into a model
     Model = osp:newGeometricModel(Mesh),
     osp:setObject(Model, "material", Mat),
     osp:commit(Model),
+    ?check_error(Dev),
 
     %% put the model into a group (collection of models)
     Group = osp:newGroup(),
@@ -154,14 +206,17 @@ tutorial(Config) ->
     ok.
 
 
-display(Title, {IW,IH}=_Size, RGBABin) ->
+display(Title, {IW,IH}=_Size, RGBABin0) ->
     wx:new(),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, Title, [{size, {IW+50, IH+50}}]),
     Panel = wxPanel:new(Frame),
     wxWindow:setBackgroundColour(Panel, {200, 180, 180}),
     Szr = wxBoxSizer:new(?wxHORIZONTAL),
     wxSizer:addStretchSpacer(Szr),
-    %% Sigh wxWidgets splits rgb and alpha
+    %% Sigh wxWidgets splits rgb and alpha (and is upside down)
+    RowSz = 4*IW,
+    RGBABin = iolist_to_binary(lists:reverse([ Row || <<Row:RowSz/binary>> <= RGBABin0])),
+
     RGB = << <<RGB:24>> || <<RGB:24,_:8>> <= RGBABin >>,
     Alpha = << <<A:8>> || <<_:24, A:8>> <= RGBABin >>,
     Image = wxImage:new(IW,IH, RGB, Alpha),

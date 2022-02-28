@@ -29,7 +29,7 @@ osp_atom_t osp_deviceProperty[] =
     {{ "version",            OSP_DEVICE_VERSION, 0},
      { "major",              OSP_DEVICE_VERSION_MAJOR, 0},
      { "minor",              OSP_DEVICE_VERSION_MINOR, 0},
-     { "patch",               OSP_DEVICE_VERSION_PATCH, 0},
+     { "patch",              OSP_DEVICE_VERSION_PATCH, 0},
      { "so_version",         OSP_DEVICE_SO_VERSION, 0},
      { NULL, 0, 0},
     };
