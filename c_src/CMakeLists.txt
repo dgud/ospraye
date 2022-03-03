@@ -14,13 +14,14 @@ endif()
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
-# control where the static and shared libraries are built so that on windows
-# we don't need to tinker with the path to run the executable
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "priv")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "priv")
+# We want the installed target lib in priv
+set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/..")
 
 find_program(ERL_EXEC erl)
+
+if(NOT ERL_EXEC)
+  message(FATAL_ERROR "Erlang not found add it to the path: '${ERL_EXEC}'")
+endif()
 
 EXECUTE_PROCESS (COMMAND
   ${ERL_EXEC} -noshell -eval "io:fwrite(\"~s\",[code:root_dir()]),init:stop()."
@@ -33,9 +34,10 @@ find_package(ospray 2.8.0 REQUIRED)
 add_library(osp SHARED osp_nif.cpp)
 
 target_include_directories(osp PUBLIC ${ERL_INC})
-#target_include_directories(osp PUBLIC ospray::ospray)
 target_link_libraries(osp PRIVATE ospray::ospray)
 
+set_target_properties(osp PROPERTIES RUNTIME_OUTPUT_NAME libosp)
 
 set(installable_libs osp)
 install(TARGETS ${installable_libs} DESTINATION ../priv)
+install(TARGETS ${installable_libs} RUNTIME DESTINATION priv)

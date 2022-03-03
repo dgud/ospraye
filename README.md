@@ -20,7 +20,20 @@ compute nodes in HPC systems.
 The OSPRAY documentation can be found [here: https://www.ospray.org/documentation.html] (https://www.ospray.org/documentation.html)
 
 
-Build
------
+Requirements
+------------
 
+cmake
+
+
+Build unix
+-----------
+    $ export CMAKE_PREFIX_PATH = "$CMAKE_PREFIX_PATH:/home/dgud/src/ospray/build/install/ospray"
     $ rebar3 compile
+
+Build windows
+-------------
+    > $Env:Path += ";C:\Program Files\erl-24.2\bin"
+    > $Env:CMAKE_PREFIX_PATH += ";e:/src/ospray/win32/install/"
+    > escript.exe rebar compile
+    >
