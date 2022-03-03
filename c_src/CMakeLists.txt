@@ -39,5 +39,4 @@ target_link_libraries(osp PRIVATE ospray::ospray)
 set_target_properties(osp PROPERTIES RUNTIME_OUTPUT_NAME libosp)
 
 set(installable_libs osp)
-install(TARGETS ${installable_libs} DESTINATION ../priv)
-install(TARGETS ${installable_libs} RUNTIME DESTINATION priv)
+install(TARGETS ${installable_libs} RUNTIME DESTINATION "../priv")
