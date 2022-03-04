@@ -15,7 +15,9 @@ endif()
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # We want the installed target lib in priv
-set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/..")
+
+string(REGEX MATCH "^.*/" CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}")
+string(APPEND CMAKE_INSTALL_PREFIX "priv")
 
 find_program(ERL_EXEC erl)
 
@@ -34,9 +36,21 @@ find_package(ospray 2.8.0 REQUIRED)
 add_library(osp SHARED osp_nif.cpp)
 
 target_include_directories(osp PUBLIC ${ERL_INC})
-target_link_libraries(osp PRIVATE ospray::ospray)
+target_link_libraries(osp ospray::ospray)
 
 set_target_properties(osp PROPERTIES RUNTIME_OUTPUT_NAME libosp)
 
 set(installable_libs osp)
-install(TARGETS ${installable_libs} RUNTIME DESTINATION "../priv")
+
+if(WIN32)
+  install(TARGETS ${installable_libs} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
+else()
+  install(TARGETS ${installable_libs} LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}")
+endif()
+
+get_target_property(OSPRAY_LIBNAME ospray::ospray LOCATION)
+string(REGEX MATCH "^.*/" _sharedlib_glob "${OSPRAY_LIBNAME}")
+string(APPEND _sharedlib_glob "*${CMAKE_SHARED_LIBRARY_SUFFIX}*")
+file(GLOB _sharedlibs LIST_DIRECTORIES false "${_sharedlib_glob}")
+install(FILES ${_sharedlibs} DESTINATION "${CMAKE_INSTALL_PREFIX}")
+
