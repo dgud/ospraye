@@ -1,7 +1,7 @@
 ##
 ##
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.14)
 
 project(ospraye)
 
@@ -13,17 +13,6 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif()
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
-
-# We want the installed target lib in priv
-
-string(REGEX MATCH "^.*/" CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}")
-string(APPEND CMAKE_INSTALL_PREFIX "priv")
-
-find_program(ERL_EXEC erl)
-
-if(NOT ERL_EXEC)
-  message(FATAL_ERROR "Erlang not found add it to the path: '${ERL_EXEC}'")
-endif()
 
 EXECUTE_PROCESS (COMMAND
   ${ERL_EXEC} -noshell -eval "io:fwrite(\"~s\",[code:root_dir()]),init:stop()."
@@ -43,14 +32,42 @@ set_target_properties(osp PROPERTIES RUNTIME_OUTPUT_NAME libosp)
 set(installable_libs osp)
 
 if(WIN32)
-  install(TARGETS ${installable_libs} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
+  install(TARGETS ${installable_libs} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/priv")
 else()
-  install(TARGETS ${installable_libs} LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}")
+  install(TARGETS ${installable_libs} LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/priv")
 endif()
 
-get_target_property(OSPRAY_LIBNAME ospray::ospray LOCATION)
-string(REGEX MATCH "^.*/" _sharedlib_glob "${OSPRAY_LIBNAME}")
-string(APPEND _sharedlib_glob "*${CMAKE_SHARED_LIBRARY_SUFFIX}*")
-file(GLOB _sharedlibs LIST_DIRECTORIES false "${_sharedlib_glob}")
-install(FILES ${_sharedlibs} DESTINATION "${CMAKE_INSTALL_PREFIX}")
+if(INSTALL_DEP_LIBS)
+  get_target_property(OSPRAY_LIBNAME ospray::ospray LOCATION)
+  string(REGEX MATCH "^.*/" _sharedlib_glob "${OSPRAY_LIBNAME}")
+  string(APPEND _sharedlib_glob "*${CMAKE_SHARED_LIBRARY_SUFFIX}*")
+  file(GLOB _sharedlibs LIST_DIRECTORIES false "${_sharedlib_glob}")
+  install(FILES ${_sharedlibs} DESTINATION "${CMAKE_INSTALL_PREFIX}/priv")
+endif()
 
+###  DEBUGGING
+
+## Get all properties that cmake supports
+execute_process(COMMAND cmake --help-property-list OUTPUT_VARIABLE CMAKE_PROPERTY_LIST)
+## Convert command output into a CMake list
+STRING(REGEX REPLACE ";" "\\\\;" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
+STRING(REGEX REPLACE "\n" ";" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
+
+list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
+
+function(print_target_properties tgt)
+  if(NOT TARGET ${tgt})
+    message("There is no target named '${tgt}'")
+    return()
+  endif()
+
+  foreach (prop ${CMAKE_PROPERTY_LIST})
+    string(REPLACE "<CONFIG>" "${CMAKE_BUILD_TYPE}" prop ${prop})
+    get_target_property(propval ${tgt} ${prop})
+    if (propval)
+      message ("${tgt} ${prop} = ${propval}")
+    endif()
+  endforeach(prop)
+endfunction(print_target_properties)
+
+#print_target_properties(osp)

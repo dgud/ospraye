@@ -824,10 +824,7 @@ nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
 nif_init() ->
-    Name = case os:type() of
-               {win32, _} -> "osp";
-               _ -> "libosp"
-           end,
+    Name = "libosp",
     Dir = case code:priv_dir(ospraye) of
               {error, _} ->
                   MPath = code:which(?MODULE),

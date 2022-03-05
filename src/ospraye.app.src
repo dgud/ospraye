@@ -1,13 +1,10 @@
 {application, ospraye,
- [{description, "An OTP library"},
-  {vsn, "0.1.0"},
+ [{description, "An erlang ospray wrapper library"},
+  {vsn, @VERSION@},
   {registered, []},
-  {applications,
-   [kernel,
-    stdlib
-   ]},
+  {applications, [kernel, stdlib]},
   {env,[]},
-  {modules, []},
+  {modules, [osp]},
 
   {licenses, ["Apache 2.0"]},
   {links, []}
